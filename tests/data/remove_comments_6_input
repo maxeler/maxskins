@@ -1,0 +1,4805 @@
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to the management of arrays of actions.
+ *
+ */
+
+#ifndef SLIC_ACTARRAY_H_
+#define SLIC_ACTARRAY_H_
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Create an array of actions
+	 * \param maxfile the maxfile
+	 * \param nb_actions number of actions the array will contains
+	 * \return An array of actions, or null on error.
+	 * \ingroup actarray
+	 */
+	max_actarray_t* max_actarray_init(
+		max_file_t 	*maxfile,
+		int			 nb_actions);
+
+	max_actarray_t* max_mixed_actarray_init(
+		max_file_t	**maxfiles,
+		int			  nb_actions);
+
+
+	/**
+	 * \brief Deallocate the array of actions.
+	 * \param actarray the array of actions to free
+	 * \ingroup actarray
+	 *
+	 * This does not deallocate the actions contained in the array.
+	 */
+	void max_actarray_free(
+		max_actarray_t	*actarray);
+
+	/**
+	 * \brief Push actions into the array of actions
+	 * \param action_array the array of actions
+	 * \param actions the actions to push
+	 * \ingroup actarray
+	 *
+	 * The use of this function must be consistent with the size of the array.
+	 */
+	void max_push_action(
+		max_actarray_t 	*action_array,
+		max_actions_t 	*actions);
+
+	/**
+	 * \brief Set an action into the action_array
+	 * \param action_array the array of actions
+	 * \param idx the index to set
+	 * \param actions the actions to set
+	 * \ingroup actarray
+	 */
+	void max_set_action(
+		max_actarray_t	*action_array,
+		int				 idx,
+		max_actions_t 	*actions);
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* SLIC_ACTARRAY_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to the management of actions.
+ *
+ */
+
+#ifndef SLIC_ACTIONS_H_
+#define SLIC_ACTIONS_H_
+
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Initialise a set of actions.
+	 *
+	 * If the \a iface_name interface argument is non-NULL, then that
+	 * interface will be used to pre-initialise the actions.
+	 * Attempting to modify actions settings that are
+	 * defined by the interface will cause an error to be raised.
+	 *
+	 * For example, if interface \a my_interface sets a kernel's
+	 * number of ticks, then calling
+	 * \code
+	 *     max_actions_init(maxfile, "my_interface");
+	 * \endcode
+	 * will create actions in which the number of ticks
+	 * has already been set.
+	 * Calling ::max_set_ticks using the returned actions
+	 * will result in an error.
+	 *
+	 * \ingroup actions
+	 * \param max_file the maxfile to use.
+	 * \param iface_name the name of the interface to use,
+	 *             or NULL for interface-less operation.
+	 * \return a set of actions, or NULL on error.
+	 */
+	max_actions_t* max_actions_init(
+		max_file_t 	*max_file,
+		const char 	*iface_name);
+
+	/**
+	 * \brief Initialise a set of explicit actions (advanced use only).
+	 *
+	 * Explicit actions do not set \b any of the implicit
+	 * settings such as runtime params and "init-to-zero" scalars.
+	 * Note that this function is intended for highly specialized
+	 * use-cases by advanced users!
+	 *
+	 * Note that this call also disables the actions reset and
+	 * validation stages.
+	 *
+	 * For clarity, the stream-sync associated with stream queueing
+	 * is not considered to be an implicit setting.
+	 *
+	 * \ingroup actions
+	 * \param max_file the maxfile to use.
+	 * \return a set of actions, or NULL on error.
+	 */
+	max_actions_t* max_actions_init_explicit(
+		max_file_t 	*max_file);
+
+	/**
+	 * \brief Deallocate the set of actions
+	 * \param actions the actions to deallocate
+	 * \ingroup actions
+	 */
+	void max_actions_free(
+		max_actions_t *actions);
+
+	/**
+	 * \brief Disable reset operation in a set of actions: this means
+	 * that the "reset" operation will not be added to the list of
+	 * actions to be run on the engine.
+	 * \param actions the actions on which the reset operation is
+	 * to be omitted.
+	 * \ingroup actions
+	 */
+	void max_disable_reset(
+		max_actions_t *actions);
+
+	/**
+	 * \brief Disable validation on a set of actions: this means
+	 * that the actions will not be checked, e.g. for missing settings,
+	 * before attempting to run them on an engine.
+	 * The default is that actions are validated prior to running.
+	 * \param actions the actions on which validation is to be suppressed.
+	 * \ingroup validation
+	 */
+	void max_disable_validation(
+		max_actions_t *actions);
+
+	/**
+	 * \brief Set "partial memories" on a set of actions: this means
+	 * that the actions will only set or get those mapped memory
+	 * elements that have been explicitly used in calls to, say,
+	 * ::max_set_mem_uint64t and ::max_get_mem_uint64t.
+	 *
+	 * The default behaviour is for the whole mapped memory array to
+	 * be written or read.
+	 * \param actions the actions for which partial memories are to apply.
+	 * \ingroup mapped_memories
+	 */
+	void max_enable_partial_memory(
+		max_actions_t *actions);
+
+	/**
+	 * \brief Validate a set of actions.
+	 *
+	 * If an actions is added to a validated set of actions, it will be
+	 * marked as unvalidated and will need to be re-validated.
+	 *
+	 * \param actions the set of actions to be validated.
+	 * \return validation status: 1 = valid, 0 = not valid.
+	 * \ingroup validation
+	 */
+	int max_validate(
+		max_actions_t *actions);
+
+	/**
+	 * \brief Set the value of a uint64_t interface parameter in a set of actions.
+	 * \param actions the actions in which to set the interface parameter
+	 * \param name    the name of the interface parameter
+	 * \param value   the value to assign to the interface parameter
+	 * \ingroup engineinterfaces
+	 */
+	void max_set_param_uint64t(
+		max_actions_t     * actions,
+		const char * const  name,
+		uint64_t            value);
+
+	/**
+	 * \brief Set the value of a double interface parameter in a set of actions.
+	 * \param actions the actions in which to set the interface parameter
+	 * \param name    the name of the interface parameter
+	 * \param value   the value to assign to the interface parameter
+	 * \ingroup engineinterfaces
+	 */
+	void max_set_param_double(
+		max_actions_t     * actions,
+		const char * const  name,
+		double              value);
+
+	/**
+	 * \brief Set a single value in a uint64_t interface-parameter array in a set of actions.
+	 * \param actions the actions in which to set the interface parameter
+	 * \param name    the name of the interface parameter
+	 * \param value   the value to assign to the interface parameter
+	 * \param idx     the index of the interface parameter array to be assigned
+	 * \ingroup engineinterfaces
+	 */
+	void max_set_param_array_uint64t(
+		max_actions_t     * actions,
+		const char * const  name,
+		uint64_t            value,
+		int                 idx);
+
+	/**
+	 * \brief Set a single value in a double interface-parameter array in a set of actions.
+	 * \param actions the actions in which to set the interface parameter
+	 * \param name    the name of the interface parameter
+	 * \param value   the value to assign to the interface parameter
+	 * \param idx     the index of the interface parameter array to be assigned
+	 * \ingroup engineinterfaces
+	 */
+	void max_set_param_array_double(
+		max_actions_t     * actions,
+		const char * const  name,
+		double              value,
+		int                 idx);
+
+	/**
+	 * \brief Mark a kernel as valid regardless of its configuration.
+	 * \param actions the actions to modify.
+	 * \param kernel_name the name of the kernel.
+	 * \ingroup validation
+	 */
+	void max_ignore_kernel(
+		max_actions_t 	*actions,
+		const char 		*kernel_name);
+
+	/**
+	 * \brief Mark a block as valid regardless of its configuration.
+	 * \param actions the actions to modify.
+	 * \param block_name the name of the block.
+	 * \ingroup validation
+	 *
+	 * This function should only be used on blocks that are not kernels.
+	 */
+	void max_ignore_block(
+		max_actions_t 	*actions,
+		const char 		*block_name);
+
+	/**
+	 * \brief Set the number of ticks for a kernel
+	 * \param actions the actions to modify
+	 * \param kernel_name the name of the kernel for which the ticks are set
+	 * \param nb_ticks the number of ticks
+	 * \ingroup kernel
+	 */
+	void max_set_ticks(
+		max_actions_t 	*actions,
+		const char		*kernel_name,
+		uint64_t		 nb_ticks);
+
+	/**
+	 * \brief Set a named offset in a kernel
+	 * \param actions the actions to modify
+	 * \param kernel_name the name of the kernel for which the offset is set
+	 * \param offset_var_name the name of the offset to set
+	 * \param v value of the offset
+	 * \ingroup offsets
+	 */
+	void max_set_offset(
+		max_actions_t	*actions,
+		const char		*kernel_name,
+		const char		*offset_var_name,
+		int				 v);
+
+
+	/**
+	 * \brief Mark an offset as valid regardless of its configuration
+	 *
+	 * \param actions the actions to modify
+	 * \param kernel_name the name of the kernel the offset belongs to
+	 * \param offset_var_name the name of the offset
+	 * \ingroup validation
+	 */
+	void max_ignore_offset(
+		max_actions_t 	*actions,
+		const char 		*kernel_name,
+		const char 		*offset_var_name);
+
+	/**
+	 * \brief Get the value of a stream distance measurement.
+	 * This value will always be positive.
+	 *
+	 * \param actions the actions to modify
+	 * \param kernel_name the name of the kernel
+	 * \param offset_var_name the name of the auto-loop offset
+	 * \ingroup offsets
+	 */
+	int max_get_stream_distance(
+		max_actions_t *actions,
+		const char    *kernel_name,
+		const char    *offset_var_name);
+
+	/**
+	 * \brief Get the value of an OffsetAutoLoop.
+	 * This value will always be positive.
+	 *
+	 * \param actions the actions to modify
+	 * \param kernel_name the name of the kernel
+	 * \param offset_var_name the name of the auto-loop offset
+	 * \ingroup offsets
+	 */
+	int max_get_offset_auto_loop_size(
+		max_actions_t *actions,
+		const char    *kernel_name,
+		const char    *offset_var_name);
+
+	/**
+	 * \brief Restrict range of watch data for a kernel, the default being to include all ticks.
+	 * \param actions     the actions to modify
+	 * \param kernel_name the name of the kernel
+	 * \param start_tick  beginning of the debug range
+	 * \param num_ticks   number of ticks in the debug range.
+	 * \ingroup simdebug
+	 */
+	void max_watch_range(
+		max_actions_t	*actions,
+		const char		*kernel_name,
+		int				 start_tick,
+		int				 num_ticks);
+
+	/**
+	 * \brief Set a routing connection
+	 * \param actions the actions to modify
+	 * \param from_name the name of the "from" end of the connection.
+	 * \param to_name the name of the "to" end of the connection.
+	 *
+	 * - The <i>from_name</i> can be either
+	 *   a <i>block</i> name (for <b>Demux</b> and <b>Fanout</b> blocks)
+	 *   or a <i>port</i> name (for <b>Mux</b> blocks); <br>
+	 *   the <i>to_name</i> can be either
+	 *   a <i>port</i> name (for <b>Demux</b> and <b>Fanout</b> blocks)
+	 *   or a <i>block</i> name (for <b>Mux</b> blocks).
+	 *
+	 * - The port names can be disambiguated by prepending with
+	 *   the block name.
+	 *   This prefix can optionally also be used with block names.
+	 *   For example, to connect Mux <i><tt>my_mux</tt></i> to its input
+	 *   port <i><tt>port1</tt></i>, use any of the following: <br>
+	 *   \code
+	 *        max_route( actions, "port1", "my_mux" );
+	 *        max_route( actions, "port1", "my_mux.my_mux" );
+	 *        max_route( actions, "my_mux.port1", "my_mux" );
+	 *        max_route( actions, "my_mux.port1", "my_mux.my_mux" );
+	 *   \endcode
+	 *
+	 * - Setting a connection on a <b>Mux</b> or a <b>Demux</b>
+	 *   overwrites any previous connection, whereas on a
+	 *   <b>Fanout</b> it adds an extra connection.
+	 *
+	 * - To disconnect all <b>Fanout</b> connections, use NULL as
+	 *   the <i>to_name</i> argument.
+	 *   \code
+	 *        max_route( actions, "my_fanout", NULL );
+	 *   \endcode
+	 *
+	 * - Only <b>Fanout</b> blocks can take NULL as a port, which
+	 *   is always a <i>to_name</i>.
+	 *
+	 * \ingroup routing_blocks
+	 */
+	void max_route(
+		max_actions_t *actions,
+		const char    *from_name,
+		const char    *to_name);
+
+	/**
+	 * \brief Define one or more routing connections.
+	 * \param actions the actions to modify
+	 * \param route_string string containing comma-separated
+	 *        "from_name -> to_name" routing commands.
+	 *        Spaces are not significant, so can be freely
+	 *        used to aid readability.
+	 *
+	 * See ::max_route for <tt>"from_name"</tt> and
+	 * <tt>"to_name"</tt> details.
+	 * Example:
+	 * \code
+	 *     max_route_string(actions, "port1 -> my_mux, my_demux -> my_demux.a, my_fanout -> NULL");
+	 * \endcode
+	 *
+	 * \ingroup routing_blocks
+	 */
+	void max_route_string(
+		max_actions_t *actions,
+		const char    *route_string);
+
+	/**
+	 * \brief Mark a routing connection block as valid regardless of its configuration
+	 *
+	 * \ingroup validation
+	 */
+	void max_ignore_route(
+		max_actions_t *actions,
+		const char    *block_name);
+
+	/**
+	 * \brief Set the debug name and mode for an action.
+	 * \param actions the actions to modify
+	 * \param name stem name used to construct the file name that will hold the debug data
+	 * \param debug_mode debug mode
+	 * \ingroup maxdebug
+	 *
+	 * For actions that are used as part of a ::max_actarray_t
+	 * - debug information will be retrieved for all ::max_actions_t if debug information
+	 *   is requested for any of the ::max_actions_t of the ::max_actarray_t
+	 * - a single debug file is created, containing information for all the max_actions_t of
+	 *   the ::max_actarray_t.  The stem name used to construct the file name of the debug
+	 *   file can be set by calling ::max_set_debug on the first ::max_actions_t of the
+	 *   ::max_actarray_t.
+	 */
+	void max_set_debug(
+		max_actions_t		*actions,
+		const char			*name,
+		max_debug_mode_t	 debug_mode);
+
+	/*----------------------------------------------------------------------------*/
+	/*-------------------------- Large-Memory functions --------------------------*/
+	/*----------------------------------------------------------------------------*/
+
+	/**
+	 * \brief Set a memory read or write, using the advanced linear pattern.
+	 * \ingroup lmem
+	 *
+	 * Note that arguments are specified in bytes; these are converted to
+	 * bursts internally.  If the arguments are not burst-aligned, this
+	 * function will raise an error.  The number of bytes per burst can
+	 * be obtained from ::max_get_burst_size.
+	 *
+	 * If the read or write operation reaches the end of the array
+	 * boundary within the LMem (<b><tt>address + array_size</tt></b>),
+	 * then it will wrap to the beginning of the array (<b><tt>address</tt></b>)
+	 * and continue reading or writing from there.
+	 *
+	 * \param actions the actions to be run.
+	 * \param mem_stream_name the name of the memory stream.
+	 * \param address the start address, in bytes, of the beginning of
+	 *        the array within the whole LMem memory.
+	 * \param array_size the size, in bytes, of the full array.
+	 * \param rw_size the size, in bytes, of the array portion to be
+	 *        read or written.
+	 * \param offset the offset, in bytes, from the beginning of the
+	 *        array (i.e. the offset from the address) from which
+	 *        the read or write operation is to start.
+	 */
+	void max_lmem_linear_advanced(
+		max_actions_t *actions,
+		const char    *mem_stream_name,
+		int64_t        address,
+		int64_t        array_size,
+		int64_t        rw_size,
+		int64_t        offset);
+
+	/**
+	 * \brief Set a memory read or write, using the simple linear pattern.
+	 * \ingroup lmem
+	 *
+	 * This is the simplest memory access pattern, and accesses the whole
+	 * of an array linearly, starting from the beginning of the array.
+	 *
+	 * It is equivalent to calling ::max_lmem_linear_advanced,
+	 * with <code>rw_size = array_size = size</code>, and <code>offset = 0</code>.
+	 *
+	 * \param actions the actions to be run.
+	 * \param mem_stream_name the name of the memory stream.
+	 * \param address the start address, in bytes, of the beginning of
+	 *        the array within the whole LMem memory.
+	 * \param size the size, in bytes, of the array.  It must be
+	 *        a multiple of the burst size (see ::max_get_burst_size).
+	 */
+	void max_lmem_linear (
+		max_actions_t *actions,
+		const char    *mem_stream_name,
+		int64_t        address,
+		int64_t        size);
+
+	/**
+	 * \brief Set a memory read or write, using the advanced stride pattern.
+	 * \ingroup lmem
+	 *
+	 * Note that arguments are specified in bytes; these are converted to
+	 * bursts internally.  If the arguments are not burst-aligned, this
+	 * function will raise an error.  The number of bytes per burst can
+	 * be obtained from ::max_get_burst_size.
+	 *
+	 * Although three dimensions are present in the argument
+	 * list, it is helpful, when setting the <code>offset</code>,
+	 * <code>stride</code> and <code>stride_mode</code> arguments,
+	 * to consider the array to be two-dimensional, of size
+	 * <code>(size_fast*size_med)</code> in the fast dimension and
+	 * <code>size_slow</code> in the slow dimension.
+	 *
+	 * To use the stride pattern with two-dimensional arrays, set
+	 * <code>size_med = 1</code>.
+	 *
+	 * \param actions the actions to be run.
+	 * \param mem_stream_name the name of the memory stream.
+	 * \param address the start address, in bytes, of the beginning of
+	 *        the array within the whole LMem memory.
+	 * \param size_fast the size, in bytes, of the fast
+	 *        dimension of the array.
+	 * \param size_med the size of the medium dimension of the
+	 *        array. This is expressed as a multiplier of the fast
+	 *        dimension, <code>size_fast</code>.
+	 * \param size_slow the size of the slow dimension of the
+	 *        array. This is expressed as a multiplier of the other
+	 *        two dimensions, <code>size_fast*size_med</code>.
+	 * \param offset  is the offset, in bytes, from which the
+	 *        reading or writing begins.
+	 *        The dimension in which the offset applies is dependent
+	 *        on the <code>stride_mode</code>:
+	 *        for <b>linear</b> mode, the offset is in the slow dimension,
+	 *        and for <b>strided</b> mode, the offset is in the fast
+	 *        dimension. <br>
+	 *        Note that the whole dataset is accessed, with the read
+	 *        or write operation wrapping to the beginning of the array
+	 *        when the end is reached.
+	 * \param stride is the amount of data, in bytes, to stride
+	 *        in the slow dimension, hence it must satisfy the
+	 *        condition <code>stride >= size_fast*size_med</code>.
+	 * \param stride_mode sets the dimension in which the data is
+	 *        accessed. <br>
+	 *        <b><tt>stride_mode=0</tt></b> sets linear access, and
+	 *        the data is accessed in the fast dimension.<br>
+	 *        <b><tt>stride_mode=1</tt></b> sets strided access, and
+	 *        the data is accessed in the slow dimension.  Note that
+	 *        the width of the data "stripe" in the slow dimension is
+	 *        equal to the burst size in bytes.
+	 */
+	void max_lmem_strided_advanced(
+		max_actions_t *actions,
+		const char    *mem_stream_name,
+		int64_t        address,
+		int64_t        size_fast,
+		int            size_med,
+		int            size_slow,
+		int64_t        offset,
+		int64_t        stride,
+		int            stride_mode);
+
+
+	/**
+	 * \brief Set a memory read or write, using the simple stride pattern.
+	 * \ingroup lmem
+	 *
+	 * This is equivalent to calling ::max_lmem_strided_advanced,
+	 * with <code>array_size_med = 1</code>, <code>stride = array_size_fast</code>,
+	 * and <code>offset = 0</code>.
+	 *
+	 * \param actions the actions to be run.
+	 * \param mem_stream_name the name of the memory stream.
+	 * \param address the start address, in bytes, of the beginning of
+	 *        the array within the whole LMem memory.
+	 * \param size_fast the size, in bytes, of the fast
+	 *        dimension of the array.
+	 * \param size_slow the size of the slow dimension of the
+	 *        array. This is expressed as a multiplier of the fast
+	 *        dimension, array_size_fast.
+	 * \param stride_mode sets the dimension in which the data is
+	 *        accessed: <br>
+	 *        <b><tt>stride_mode=0</tt></b> sets linear access, and
+	 *        the data is accessed in the fast dimension; <br>
+	 *        <b><tt>stride_mode=1</tt></b> sets strided access, and
+	 *        the data is accessed in the slow dimension.  Note that
+	 *        the width of the data "stripe" in the slow dimension is
+	 *        equal to the burst size in bytes.
+	 */
+	void max_lmem_strided(
+		max_actions_t *actions,
+		const char    *mem_stream_name,
+		int64_t        address,
+		int64_t        size_fast,
+		int            size_slow,
+		int            stride_mode);
+
+
+	/**
+	 * \brief Set a memory read or write, using the blocked pattern.
+	 * \ingroup lmem
+	 *
+	 * Note that arguments are specified in bytes; these are converted to
+	 * bursts internally.  If the arguments are not burst-aligned, this
+	 * function will raise an error.  The number of bytes per burst can
+	 * be obtained from ::max_get_burst_size.
+	 *
+	 * \param actions the actions to be run.
+	 * \param mem_stream_name the name of the memory stream.
+	 * \param address the start address, in bytes, of the beginning of
+	 *        the array within the whole LMem memory.
+	 * \param array_size_fast the size, in bytes, of the fast
+	 *        dimension of the array.
+	 * \param array_size_med the size of the medium dimension of the
+	 *        array. This is expressed as a multiplier of the fast
+	 *        dimension, <code>array_size_fast</code>.
+	 * \param array_size_slow the size of the slow dimension of the
+	 *        array. This is expressed as a multiplier of the other
+	 *        two dimensions, <code>array_size_fast*array_size_med</code>.
+	 * \param rw_size_fast the read/write size, in bytes, of the
+	 *        fast dimension of the array.
+	 * \param rw_size_med the read/write size of the medium dimension
+	 *        of the array.
+	 * \param rw_size_slow the read/write size of the slow dimension
+	 *        of the array.
+	 * \param offset_fast the offset, in bytes, of the fast dimension
+	 *        of the beginning of the read/write block within the
+	 *        full array block.
+	 * \param offset_med the offset of the medium dimension of the
+	 *        beginning of the read/write block within the
+	 *        full array block.
+	 * \param offset_slow the offset of the slow dimension of the
+	 *        beginning of the read/write block within the
+	 *        full array block.
+	 */
+	void max_lmem_blocked(
+		max_actions_t *actions,
+		const char    *mem_stream_name,
+		int64_t        address,
+		int64_t        array_size_fast,
+		int            array_size_med,
+		int            array_size_slow,
+		int64_t        rw_size_fast,
+		int            rw_size_med,
+		int            rw_size_slow,
+		int64_t        offset_fast,
+		int            offset_med,
+		int            offset_slow);
+
+
+	/**
+	 * \brief Get the burst size for the current architecture.
+	 * \ingroup lmem
+	 *
+	 * \param maxfile the ::max_file_t structure indicating the capabilities required.
+	 * \param name should be set to NULL for MAX2 and MAX3 hardware.  <br>
+	 *        This parameter is intended for future architectures that allow
+	 *        more than one Memory Controller to be used.
+	 * \return the burst size, in bytes.
+	 */
+	int max_get_burst_size(
+		max_file_t * const maxfile,
+		const char * const name);
+
+	/**
+	 * \brief Enable interrupt on a memory stream.
+	 * \ingroup lmem
+	 *
+	 * The enable-interrupt bit for this stream will be set.
+	 * \param actions the actions to be run.
+	 * \param mem_stream_name the name of the memory stream.
+	 *
+	 */
+	void max_lmem_set_interrupt_on(
+		max_actions_t *actions,
+		const char    *mem_stream_name);
+
+
+	/**
+	 * \brief Disable interrupts.
+	 * \ingroup lmem
+	 *
+	 * The interrupts will be turned off for all memory streams.
+	 * \param actions the actions to be run.
+	 *
+	 */
+	void max_lmem_all_interrupts_off(
+		max_actions_t *actions);
+
+
+	/**
+	 * \brief Get the id of an LMem stream within the memory controller.
+	 * \ingroup lmem
+	 *
+	 * \param maxfile the ::max_file_t structure indicating the capabilities required.
+	 * \param mem_stream_name the name of the memory stream.
+	 * \return the id of the LMem stream, or -1 on error.
+	 */
+	int max_lmem_get_id(
+		max_file_t *maxfile,
+		const char *mem_stream_name);
+
+	/**
+	 * \brief Get the id of an LMem stream within a group.
+	 * \ingroup lmem
+	 *
+	 * \param maxfile the ::max_file_t structure indicating the capabilities required.
+	 * \param mem_stream_name the name of the memory stream.
+	 * \return the id of the LMem stream within its group, or -1 on error.
+	 */
+	int max_lmem_get_id_within_group(
+		max_file_t *maxfile,
+		const char *mem_stream_name);
+
+	/**
+	 * \brief Mark a manager memory as valid regardless of its configuration.
+	 * \ingroup validation
+	 *
+	 * This function should be called for all LMem memory streams
+	 * that are not used in a set of actions; the validation of the
+	 * actions then bypasses the memory stream and does not raise an
+	 * error for missing LMem settings.
+	 *
+	 * \param actions the actions to be run on an engine.
+	 * \param mem_stream_name the name of the memory to be marked as
+	 *        valid.
+	 */
+	void max_ignore_lmem(
+		max_actions_t *actions,
+		const char    *mem_stream_name);
+
+
+	/*----------------------------------------------------------------------------*/
+	/*----- The following are internal and not intended for use by end-users -----*/
+	/*----------------------------------------------------------------------------*/
+
+	/**
+	 * \internal
+	 */
+	int max_get_offset(
+		max_actions_t 	*actions,
+		const char 		*kernel_name,
+		const char 		*offset_var_name);
+
+	/**
+	 * \internal
+	 */
+	int max_get_offset_unchecked(
+		max_actions_t 	*actions,
+		const char 		*kernel_name,
+		const char 		*offset_var_name);
+
+	/**
+	 * find whether a kernel needs to be validated;
+	 * called from MaxFileInit.set_runtime_params
+	 * \internal
+	 */
+	int max_get_ignore_kernel(
+		max_actions_t 	*actions,
+		const char 		*kernel_name);
+
+	/**
+	 * find whether an offset needs to be validated;
+	 * called from MaxFileInit.set_runtime_params
+	 * \internal
+	 */
+	int max_get_ignore_offset(
+		max_actions_t 	*actions,
+		const char 		*kernel_name,
+		const char 		*offset_var_name);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* SLIC_ACTIONS_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to the compiler version
+ */
+
+#ifndef SLIC_COMPILER_H_
+#define SLIC_COMPILER_H_
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+	/**
+	 * Get compiler information
+	 * \ingroup compilerinfo
+	 */
+	int  max_system_get_compiler_version_year(void);
+
+	/**
+	 * Get compiler information
+	 * \ingroup compilerinfo
+	 */
+	int  max_system_get_compiler_version_major(void);
+
+	/**
+	 * Get compiler information
+	 * \ingroup compilerinfo
+	 */
+	int  max_system_get_compiler_version_minor(void);
+
+	/**
+	 * Get compiler information
+	 * \ingroup compilerinfo
+	 */
+	char max_system_get_compiler_version_patch(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_COMPILER_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to the management of single engines.
+ *
+ */
+
+#ifndef SLIC_ENGINE_H_
+#define SLIC_ENGINE_H_
+
+
+#include "slic_typedefs.h"
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Load a stand-alone engine and lock it for exclusive use.
+	 *
+	 * \param max_file the ::max_file_t structure indicating the capabilities required
+	 * \param engine_id_pattern location of the engine.  The format of this string is
+	 *        described in \ref engine_naming
+	 * \return an engine
+	 * \ingroup engine
+	 */
+	max_engine_t* max_load(
+		max_file_t *max_file,
+		const char *engine_id_pattern);
+
+
+	/**
+	 * \brief Unload and deallocate an engine obtained by way of ::max_load
+	 * \ingroup engine
+	 * \param engine the engine to deallocate
+	 *
+	 * An engine should only be unloaded or unlocked after all associated non-blocking
+	 * runs are finished.
+	 *
+	 */
+	void max_unload(
+		max_engine_t *engine);
+
+
+	/**
+	 * \brief Run actions on the engine
+	 * \ingroup engine
+	 *
+	 * \param engine the engine to use
+	 * \param actions the actions to run
+	 *
+	 * Unless an error occurred, this function returns only when the actions have
+	 * been completed.
+	 */
+	void max_run(
+		max_engine_t *engine,
+		max_actions_t *actions);
+
+
+	/**
+	 * \brief Run actions in non-blocking mode
+	 *
+	 * \param engine the engine to use
+	 * \param actions the actions to run
+	 * \return a handle on the execution status of the actions
+	 * \ingroup engine
+	 *
+	 * Schedule the actions to run on the engines and return immediately.
+	 * The status of the run can be checked by way of ::max_wait or ::max_nowait.
+	 *
+	 * See \ref nonblocking.
+	 */
+	max_run_t* max_run_nonblock(
+		max_engine_t 	*engine,
+		max_actions_t 	*actions);
+
+
+	/**
+	 * \brief Run actions in non-blocking mode with callback
+	 *
+	 * \param engine the engine to use
+	 * \param actions the actions to run
+	 * \param cb_func the callback to call when actions are completed
+	 * \param cb_data the data required by the callback function
+	 * \return a handle on the execution status of the actions
+	 * \ingroup engine
+	 *
+	 * Schedule the actions to run on the engines and return immediately.
+	 * The status of the run can be checked by way of ::max_wait or ::max_nowait.
+	 * When the actions have completed, a callback function is run: this is
+	 * used by the SLiC static interface to realign streams if necessary.
+	 *
+	 * See \ref nonblocking.
+	 */
+	max_run_t* max_run_nonblock_with_cb(
+		max_engine_t   *engine,
+		max_actions_t  *actions,
+		void          (*cb_func)(void*),
+		void           *cb_data);
+
+
+	/**
+	 * \brief Run a list of actions on the engine
+	 * \ingroup engine
+	 *
+	 * \param engine the engine to use
+	 * \param arr_actions the set of actions to run
+	 * \param nb_actions the size of the actions array
+	 *
+	 * Unless an error occurred, this function returns only when the actions have
+	 * been completed.
+	 */
+	void max_run_multi(
+		max_engine_t   *engine,
+		max_actions_t **arr_actions,
+		int             nb_actions);
+
+
+	/**
+	 * \brief Run a list of actions on the engine in non-blocking mode
+	 *
+	 * \param engine the engine to use
+	 * \param arr_actions the set of actions to run
+	 * \param nb_actions the size of the actions array
+	 * \return a handle on the execution status of the final actions;
+	 *         all but the final actions are set to be \a no-wait.
+	 * \ingroup engine
+	 *
+	 * Schedule the list of actions to run on the engines and return immediately.
+	 * The status of the final run can be checked by way of ::max_wait or ::max_nowait;
+	 * the all but the final run are set to ::max_nowait.
+ 	 *
+	 * See \ref nonblocking.
+	 */
+	max_run_t* max_run_multi_nonblock(
+		max_engine_t   *engine,
+		max_actions_t **arr_actions,
+		int             nb_actions);
+
+
+	/**
+	 * \brief Unlock an engine locked by way of max_lock_any
+	 * \param engine the engine to unlock.
+	 * \ingroup engine
+	 *
+	 * See ::max_unload
+	 */
+	void max_unlock(
+		max_engine_t *engine);
+
+	/**
+	 * \brief Explicity reset an engine
+	 * \param engine the engine to reset
+	 * \ingroup engine
+	 *
+	 */
+	void max_reset_engine(
+		max_engine_t *engine);
+
+	/*----------------------------------------------------------------------------*/
+	/*----- The following are internal and not intended for use by end-users -----*/
+	/*----------------------------------------------------------------------------*/
+
+	/**
+	 * \internal needs support from maxeleros
+	 * \brief Reload an engine with a different maxfile
+	 * \param engine the engine to use
+	 * \param maxfile the maxfile to load
+	 * \ingroup engine
+	 */
+	void max_reload(
+		max_engine_t 	*engine,
+		max_file_t 		*maxfile);
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* SLIC_ENGINE_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to scalar parameters.
+ *
+ */
+
+#ifndef SLIC_REG_H_
+#define SLIC_REG_H_
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Set a scalar parameter.
+	 * \param actions the actions to be run.
+	 * \param block_name the name of the block containing
+	 *        the scalar parameter,
+	 *        typically the kernel name.
+	 * \param reg_name the name of the scalar parameter.
+	 * \param v the value to be set in the scalar parameter.
+	 * \ingroup scalar_parameters
+	 */
+	void max_set_double(
+			max_actions_t	*actions,
+			const char 		*block_name,
+			const char 		*reg_name,
+			double			 v);
+
+	/**
+	 * \brief Prepare an output scalar parameter for readback.
+	 * \param actions the actions to be run.
+	 * \param block_name the name of the block containing
+	 *        the scalar parameter,
+	 *        typically the kernel name.
+	 * \param reg_name the name of the scalar parameter.
+	 * \param v the address into which the result is to be
+	 *        written.  Note that it must be 64 bits wide.
+	 * \ingroup scalar_parameters
+	 */
+	void max_get_double(
+			max_actions_t	*actions,
+			const char 		*block_name,
+			const char 		*reg_name,
+			double 			*v);
+
+	/**
+	 * \brief Set a scalar parameter
+	 * \param actions the actions to be run.
+	 * \param block_name the name of the block containing
+	 *        the scalar parameter,
+	 *        typically the kernel name.
+	 * \param reg_name the name of the scalar parameter.
+	 * \param v the value to be set in the scalar parameter.
+	 * \ingroup scalar_parameters
+	 */
+	void max_set_uint64t(
+		  max_actions_t	*actions,
+		  const char 	*block_name,
+		  const char 	*reg_name,
+		  uint64_t 		 v);
+
+	/**
+	 * \brief Prepare an output scalar parameter for readback.
+	 * \param actions the actions to be run.
+	 * \param block_name the name of the block containing
+	 *        the scalar parameter,
+	 *        typically the kernel name.
+	 * \param reg_name the name of the scalar parameter.
+	 * \param v the address into which the result is to be
+	 *        written.  Note that it must be 64 bits wide.
+	 * \ingroup scalar_parameters
+	 */
+	void max_get_uint64t(
+		  max_actions_t	*actions,
+		  const char 	*block_name,
+		  const char 	*reg_name,
+		  uint64_t 		*v);
+
+	/**
+	 * \brief Mark a scalar parameter as valid.
+	 * \ingroup validation
+	 */
+	void max_ignore_scalar(
+		max_actions_t *actions,
+		const char 	  *block_name,
+		const char 	  *reg_name);
+
+	/*----------------------------------------------------------------------------*/
+	/*---------------------- handle-based access functions -----------------------*/
+	/*----------------------------------------------------------------------------*/
+
+	/**
+	 * \brief Check whether a writable scalar parameter handle exists.
+	 *
+	 * \param maxfile the maxfile to which the scalar parameter belongs.
+	 * \param block_name the name of the block containing
+	 *        the scalar parameter, typically the kernel name.
+	 * \param reg_name the name of the scalar parameter.
+	 * \return 1=handle exists, 0=handle not found.
+	 * \ingroup scalar_parameters
+	 */
+	int max_has_handle_scalar_input(
+		max_file_t		*maxfile,
+		const char		*block_name,
+		const char		*reg_name);
+
+	/**
+	 * \brief Check whether a read-back scalar parameter handle exists.
+	 *
+	 * \param maxfile the maxfile to which the scalar parameter belongs.
+	 * \param block_name the name of the block containing
+	 *        the scalar parameter, typically the kernel name.
+	 * \param reg_name the name of the scalar parameter.
+	 * \return 1=handle exists, 0=handle not found.
+	 * \ingroup scalar_parameters
+	 */
+	int max_has_handle_scalar_output(
+		max_file_t		*maxfile,
+		const char		*block_name,
+		const char		*reg_name);
+
+	/**
+	 * \brief Get a handle to a writable scalar parameter.
+	 *
+	 * \note Note that the handle itself is \b read-only and
+	 * <i>must not be freed</i> by the user.
+	 *
+	 * \param maxfile the maxfile to which the scalar parameter belongs.
+	 * \param block_name the name of the block containing
+	 *        the scalar parameter, typically the kernel name.
+	 * \param reg_name the name of the scalar parameter.
+	 * \return a handle to the input scalar parameter.
+	 * \ingroup scalar_parameters
+	 */
+	const max_handle_t* max_get_handle_scalar_input(
+		max_file_t		*maxfile,
+		const char		*block_name,
+		const char		*reg_name);
+
+	/**
+	 * \brief Get a handle to a read-back scalar parameter.
+	 *
+	 * \note Note that the handle itself is \b read-only and
+	 * <i>must not be freed</i> by the user.
+	 *
+	 * \param maxfile the maxfile to which the scalar parameter belongs.
+	 * \param block_name the name of the block containing
+	 *        the scalar parameter, typically the kernel name.
+	 * \param reg_name the name of the scalar parameter.
+	 * \return a handle to the output scalar parameter.
+	 * \ingroup scalar_parameters
+	 */
+	const max_handle_t* max_get_handle_scalar_output(
+		max_file_t		*maxfile,
+		const char		*block_name,
+		const char		*reg_name);
+
+	/**
+	 * \brief Set a scalar parameter via a handle.
+	 * \param actions the actions to be run.
+	 * \param handle the handle to the scalar parameter to be set.
+	 * \param value the value to be set in the scalar parameter.
+	 * \ingroup scalar_parameters
+	 */
+	void max_set_handle_uint64t(
+		max_actions_t       *actions,
+		const max_handle_t  *handle,
+		uint64_t             value);
+
+	/**
+	 * \brief Set a scalar parameter via a handle.
+	 * \param actions the actions to be run.
+	 * \param handle the handle to the scalar parameter to be set.
+	 * \param value the value to be set in the scalar parameter.
+	 * \ingroup scalar_parameters
+	 */
+	void max_set_handle_double(
+		max_actions_t       *actions,
+		const max_handle_t  *handle,
+		double               value);
+
+	/**
+	 * \brief Prepare an output scalar parameter, via a handle, for read-back.
+	 * \param actions the actions to be run.
+	 * \param handle the handle to the scalar parameter to be read back.
+	 * \param value the address into which the result is to be
+	 *        written.  Note that it must be 64 bits wide.
+	 * \ingroup scalar_parameters
+	 */
+	void max_get_handle_uint64t(
+		max_actions_t       *actions,
+		const max_handle_t  *handle,
+		uint64_t            *value);
+
+	/**
+	 * \brief Prepare an output scalar parameter, via a handle, for read-back.
+	 * \param actions the actions to be run.
+	 * \param handle the handle to the scalar parameter to be read back.
+	 * \param value the address into which the result is to be
+	 *        written.  Note that it must be 64 bits wide.
+	 * \ingroup scalar_parameters
+	 */
+	void max_get_handle_double(
+		max_actions_t       *actions,
+		const max_handle_t  *handle,
+		double              *value);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* SLIC_REG_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/** \file
+ * Functions related to TCP networking
+ */
+
+#ifndef SLIC_TCP_H
+#define SLIC_TCP_H
+
+#include <netinet/in.h>
+#include <net/ethernet.h>
+#include <sys/time.h>
+
+#include "slic_typedefs.h"
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Configure data framing for a socket.
+	 * \ingroup networking_tcp
+	 *
+	 * Data received on the socket will be interpreted as the specified message-based protocol
+	 * and partitioned into individual bus frames according to the message boundaries.
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param config desired framing configuration
+	 */
+	void max_tcp_setup_framing(
+		max_tcp_socket_t		*tcp_socket,
+		max_tcp_sized_config_t	 config);
+
+	/**
+	 * \brief Create a TCP socket.
+	 * \ingroup networking_tcp
+	 *
+	 * All sockets must be created before the first call to ::max_tcp_listen or ::max_tcp_connect.
+	 * Trying to create additional sockets at any point after one of these functions has been called will
+	 * result in an error.
+	 *
+	 * @param engine the engine to use
+	 * @param stream_name name of the TCP stream the socket shall be associated with
+	 * @return handle to the newly created TCP socket
+	 */
+	max_tcp_socket_t* max_tcp_create_socket(
+		max_engine_t	*engine,
+		const char		*stream_name);
+
+	/**
+	 * \brief Create a TCP socket with a specific socket number.
+	 * \ingroup networking_tcp
+	 *
+	 * All sockets must be created before the first call to ::max_tcp_listen or ::max_tcp_connect.
+	 * Trying to create additional sockets at any point after one of these functions has been called will
+	 * result in an error.
+	 *
+	 * @param engine the engine to use
+	 * @param stream_name name of the TCP stream the socket shall be associated with
+	 * @param socket_number number between 0 and 63 inclusive
+	 * @return handle to the newly created TCP socket
+	 */
+	max_tcp_socket_t* max_tcp_create_socket_with_number(
+		max_engine_t	*engine,
+		const char		*stream_name,
+		uint16_t		 socket_number);
+
+	/**
+	 * \brief Specify additional socket parameters.
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param rx_window_size_bytes Receive window size in bytes
+	 * @param tx_window_size_bytes Transmit window size in bytes
+	 *
+	 * The window size parameters must be between 512 and 65536 (inclusive) and a power of two.
+	 * If a window size of zero is passed, a default value will be set.
+	 */
+	void max_tcp_setup_socket_advanced(
+		max_tcp_socket_t	*tcp_socket,
+		uint32_t 			 rx_window_size_bytes,
+		uint32_t			 tx_window_size_bytes);
+
+	/**
+	 * \brief Connect a socket to a remote host.
+	 * \ingroup networking_tcp
+	 *
+	 * An unused local port in the ephemeral range [32768, 61000] is assigned to the
+	 * socket automatically.
+	 *
+	 * After calling ::max_tcp_connect no additional TCP sockets can be created.
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 *
+	 * @param remote_ip IP address of the remote host to connect to
+	 * @param remote_port a port on the remote host
+	 */
+	void max_tcp_connect(
+		max_tcp_socket_t		*tcp_socket,
+		const struct in_addr 	*remote_ip,
+		uint16_t				 remote_port
+	);
+
+	/**
+	 * \brief Listen for a connection from a remote host.
+	 * \ingroup networking_tcp
+	 *
+	 * Once a remote host connects the socket stops listening and changes
+	 * into the ::MAX_TCP_STATE_ESTABLISHED state.
+	 *
+	 * Multiple sockets may listen on a single local port simultaneously. In this
+	 * case remote host connection requests on that port are arbitrarily assigned
+	 * to one of the listening sockets while the other sockets continue listening.
+	 *
+	 * After calling ::max_tcp_listen no additional TCP sockets can be created.
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param local_port local port to listen on
+	 */
+	void max_tcp_listen(
+		max_tcp_socket_t	*tcp_socket,
+		uint16_t			 local_port);
+
+	/**
+	 * \brief Retrieve the socket number of a socket.
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @return socket number between 0 and 63 inclusive associated with the socket
+	 */
+	uint16_t max_tcp_get_socket_number(
+		max_tcp_socket_t	*tcp_socket);
+
+	/**
+	 * \internal
+	 * \brief Block until at least one socket in a set of sockets has changed its
+	 *        number of transmit bytes sent since the last call to ::max_tcp_select_transmit.
+	 *
+	 * \ingroup networking_tcp
+	 *
+	 * @param num_sockets number of socket handles in \a sockets
+	 * @param sockets sockets to probe for a TX byte count update
+	 * @param num_sockets_with_tx_sent_event [out] number of socket handles in \a sockets_with_sent_event
+	 * @param sockets_with_tx_sent_event [out] sockets with an updated transmit byte count
+	 * @param timeout [in,out] maximum time to block for or NULL to wait for a state change indefinitely.
+	 *                 Upon return, \a timeout will hold the remaining time, if a timeout was specified.
+	 */
+	void max_tcp_select_transmit(
+			uint16_t                num_sockets,
+			const max_tcp_socket_t  *sockets[],
+			uint16_t                *num_sockets_with_tx_sent_event,
+			max_tcp_socket_t        *sockets_with_tx_sent_event[],
+			struct timeval          *timeout);
+
+	/**
+	 * \brief Block until at least one socket in a set of sockets has changed its connection state
+	 *        since the last call to ::max_tcp_select.
+	 * \ingroup networking_tcp
+	 *
+	 * @param num_sockets number of socket handles in \a sockets
+	 * @param sockets sockets to probe for a state change
+	 * @param [out] num_changed_sockets number of socket handles in \a changed_sockets
+	 * @param [out] changed_sockets sockets that changed state
+	 * @param [in,out] timeout maximum time to block for or NULL to wait for a state change indefinitely.
+	 *                 Upon return, \a timeout will hold the remaining time, if a timeout was specified.
+	 */
+	void max_tcp_select(
+		uint16_t					num_sockets,
+		const max_tcp_socket_t		*sockets[],
+		uint16_t					*num_changed_sockets,
+		max_tcp_socket_t			*changed_sockets[],
+		struct timeval				*timeout);
+
+	/**
+	 * \brief Block until a socket reaches a specific connection state.
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param state connection state to wait for
+	 * @param [in,out] timeout maximum time to block for or NULL to wait for the state indefinitely.
+	 *                 Upon return, \a timeout will hold the remaining time, if a timeout was specified.
+	 * @return zero if the socket reached the specified state, non-zero otherwise
+	 */
+	int max_tcp_await_state(
+		max_tcp_socket_t			*tcp_socket,
+		max_tcp_connection_state_t	 state,
+		struct timeval				*timeout);
+
+	/**
+	 * \brief Close a socket gracefully.
+	 * \ingroup networking_tcp
+	 *
+	 * The socket will no longer be able to receive or transmit data.
+	 *
+ 	 * Already received data remains in a DFE buffer until processed. The socket stays
+ 	 * in the ::MAX_TCP_STATE_CLOSED_DATA_PENDING state until the data is processed.
+ 	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 */
+	void max_tcp_close(
+		max_tcp_socket_t *tcp_socket);
+
+	/**
+	 * \brief Abort the connection of a socket.
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param close_mode close mode to use
+	 */
+	void max_tcp_close_advanced(
+		max_tcp_socket_t 		*tcp_socket,
+		max_tcp_close_mode_t	 close_mode);
+
+	/**
+	 * \brief Retrieve the network connection associated with a TCP stream.
+	 * \ingroup networking_tcp
+	 *
+	 * @param maxfile MaxFile containing the stream of interest
+	 * @param stream_name name of the stream
+	 * @return the connection associated with the stream
+	 */
+	max_net_connection_t max_tcp_get_network_connection(
+		max_file_t	*maxfile,
+		const char	*stream_name);
+
+	/**
+	 * \brief Get the connection state from a TCP socket
+	 * \ingroup networking_tcp
+	 *
+	 * \param tcp_socket a TCP socket
+	 * \return the connection state, which is one of ::max_tcp_connection_state_t,
+	 *          or -1 in case of error.
+	 */
+	max_tcp_connection_state_t max_tcp_get_connection_state(
+		max_tcp_socket_t	*tcp_socket);
+
+	/**
+	 * \internal
+	 * \brief Enable or disable TCP Silly Window Syndrome avoidance for a connection (default: enabled).
+	 *
+	 * In simulation, this parameter is ignored.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param enable enable or disable Silly Window Syndrome avoidance?
+	 */
+	void max_tcp_enable_silly_window_avoidance(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		int						 enable);
+
+	/**
+	 * \internal
+	 * \brief Enable or disable TCP Slow Start for a connection (default: disabled).
+	 *
+	 * In simulation, this parameter is ignored.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param enable enable or disable Slow Start?
+	 */
+	void max_tcp_enable_slow_start(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		int						 enable);
+
+	/**
+	 * \internal
+	 * \brief Enable or disable TCP Fast Retransmit for a connection (default:
+	 * enabled).
+	 *
+	 * Fast Recovery must be disabled before Fast Retransmit can be disabled.
+	 *
+	 * In simulation, this parameter is ignored.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param enable enable or disable Fast Retransmit?
+	 */
+	void max_tcp_enable_fast_retransmit(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		int						 enable);
+
+	/**
+	 * \internal
+	 * \brief Enable or disable TCP Fast Recovery for a connection (default:
+	 * enabled).
+	 *
+	 * Fast Retransmit must be enabled before Fast Recovery can be enabled.
+	 *
+	 * In simulation, this parameter is ignored.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param enable enable or disable Fast Recovery?
+	 */
+	void max_tcp_enable_fast_recovery(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		int						 enable);
+
+	/**
+	 * \internal
+	 * \brief Return whether or not TCP Silly Window Syndrome avoidance is
+	 * enabled for a connection.
+	 *
+	 * In simulation, the returned value is invalid and may not reflect the
+	 * observed TCP behaviour.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param [out] enabled Silly Window Syndrome avoidance is enabled?
+	 */
+	void max_tcp_silly_window_avoidance_is_enabled(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		int						*enabled);
+
+	/**
+	 * \internal
+	 * \brief Return whether or not TCP Slow Start is enabled for a connection.
+	 *
+	 * In simulation, the returned value is invalid and may not reflect the
+	 * observed TCP behaviour.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param [out] enabled Slow Start is enabled?
+	 */
+	void max_tcp_slow_start_is_enabled(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		int						*enabled);
+
+	/**
+	 * \internal
+	 * \brief Return whether or not TCP Fast Retransmit is enabled for a
+	 * connection.
+	 *
+	 * In simulation, the returned value is invalid and may not reflect the
+	 * observed TCP behaviour.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param [out] enabled Fast Retransmit is enabled?
+	 */
+	void max_tcp_fast_retransmit_is_enabled(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		int						*enabled);
+
+	/**
+	 * \internal
+	 * \brief Return whether or not TCP Fast Recovery is enabled for a
+	 * connection.
+	 *
+	 * In simulation, the returned value is invalid and may not reflect the
+	 * observed TCP behaviour.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param [out] enabled Fast Recovery is enabled?
+	 */
+	void max_tcp_fast_recovery_is_enabled(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		int						*enabled);
+
+	/**
+	 * \internal
+	 * \brief Set the delayed ACK timeout for a connection
+	 * (default: 0.1s).
+	 *
+	 * The timeout can only be either  100ms or 200ms
+	 * The timeout can also be disabled entirely, meaning the TCP stack would ACK immediately
+	 *
+	 * In simulation, this parameter is ignored.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param enabled - Enable delayed ACKs: true - enabled, false - disabled (ACK immediately)
+	 * @param timeout - the timeout in milliseconds, valid values: 100, 200
+	 */
+	void max_tcp_set_delayed_ack_timeout(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		bool					 enabled,
+		uint32_t				 timeout_ms);
+
+	/**
+	 * \internal
+	 * \brief Return the delayed acknowledgement timeout for a connection.
+	 *
+	 * In simulation, the returned value is invalid and may not reflect the
+	 * observed TCP behaviour.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param [out] enabled - whether the timeout is enabled
+	 * @param [out] timeout - current timeout value in milliseconds
+	 */
+	void max_tcp_get_delayed_ack_timeout(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		bool					*enabled,
+		uint32_t				*timeout_ms);
+
+	/**
+	 * \internal
+	 * \brief Set the keep alive timeout for a connection
+	 * (default: 1632s).
+	 *
+	 * The timeout should be specified in multiples of 6.4s, to a maximum of
+	 * 1632s.  Intermediate values will be rounded up to the next largest
+	 * multiple, and values that are too large will cause the function to
+	 * return with an error.
+	 *
+	 * In simulation, this parameter is ignored.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param timeout the new timeout value
+	 */
+	void max_tcp_set_keep_alive_timeout(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		struct timeval			 timeout);
+
+	/**
+	 * \internal
+	 * \brief Return the keep alive timeout for a connection.
+	 *
+	 * In simulation, the returned value is invalid and may not reflect the
+	 * observed TCP behaviour.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param [out] timeout the current timeout value
+	 */
+	void max_tcp_get_keep_alive_timeout(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		struct timeval			*timeout);
+
+	/**
+	 * \internal
+	 * \brief Set the duplicate acknowledgement threshold for a connection
+	 * (default: 4).
+	 *
+	 * The maximum threshold is 15.  Values that are too large will cause the
+	 * function to return with an error.
+	 *
+	 * In simulation, this parameter is ignored.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param threshold the new threshold
+	 */
+	void max_tcp_set_duplicate_ack_threshold(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		uint16_t				 threshold);
+
+	/**
+	 * \internal
+	 * \brief Return the duplicate acknowledgement threshold for a connection.
+	 *
+	 * In simulation, the returned value is invalid and may not reflect the
+	 * observed TCP behaviour.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param [out] threshold the current threshold
+	 */
+	void max_tcp_get_duplicate_ack_threshold(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		uint16_t				*threshold);
+
+	/**
+	 * \internal
+	 * \brief Configure TCP TX window flushing for a connection (default: timeout and 2klvl flush enabled, period 0)
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param enable_timeout_flush enable or disable timeout flush of the TX windows?
+	 * @param enable_fifo2klvl_flush enable or disable 2k level flush of the TX windows?
+	 * @param flush_timeout_period Timeout period in clock cycles for flushing the TX windows
+	 */
+	void max_tcp_configure_transmit_window_flush(
+	    max_engine_t			*engine,
+	    max_net_connection_t	 connection,
+		int 					 enable_timeout_flush,
+		int						 enable_fifo2klvl_flush,
+		uint32_t				 flush_timeout_period);
+
+	/**
+	 * \brief Retrieve connection information of a peer
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param [out] ip the peer's IP address
+	 * @param [out] port the peer's port
+	 * @param [out] mac the peer's or gateway's MAC address
+	 */
+	void max_tcp_get_remote_address(
+		max_tcp_socket_t 			*tcp_socket,
+		struct in_addr				*ip,
+	    uint16_t					*port,
+	    struct ether_addr			*mac);
+
+	/**
+	 * \brief Retrieve connection information of a socket
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param [out] ip the local IP address
+	 * @param [out] port the local port
+	 * @param [out] mac the local MAC address
+	 */
+	void max_tcp_get_local_address(
+		max_tcp_socket_t 			*tcp_socket,
+		struct in_addr				*ip,
+	    uint16_t					*port,
+	    struct ether_addr			*mac);
+
+	/**
+	 * \internal
+	 * \brief Return the number of bytes received on a TCP socket.
+	 *
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param [out] num_rx_bytes pointer to a variable to receive the number of received bytes
+	 */
+	void max_tcp_get_num_bytes_received(
+			max_tcp_socket_t    *tcp_socket,
+			uint64_t            *num_rx_bytes);
+
+
+	/**
+	 * \internal
+	 * \brief Return the number of bytes sent on a TCP socket.
+	 *
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param [out] num_tx_bytes pointer to a variable to receive the number of transmitted bytes
+	 * @param [out] session_id pointer to a variable to receive the transmit session ID
+	 */
+	void max_tcp_get_num_bytes_transmitted(
+			max_tcp_socket_t    *tcp_socket,
+			uint64_t            *num_tx_bytes,
+			uint8_t				*session_id);
+
+
+	/**
+	 * \internal
+	 * \brief Reads the current session ID directly off the TCP block. This is the most up to date value.
+	 *
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param [out] session_id pointer to a variable to receive the session_id
+	 */
+	void max_tcp_get_session_id(
+			max_tcp_socket_t *tcp_socket,
+			uint8_t *session_id);
+
+	/**
+	 * \internal
+	 * \brief Reads the number of QDR parity errors in the TCP window memory of the specified socket.
+	 *
+	 * \ingroup networking_tcp
+	 *
+	 * @param tcp_socket socket handle returned by ::max_tcp_create_socket
+	 * @param [out] session_id pointer to a variable to receive the number of parity errors
+	 */
+	void max_tcp_get_qdr_num_parity_errors(
+			max_tcp_socket_t    *tcp_socket,
+			uint32_t            *num_parity_errors);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_TCP_H */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Definitions of various structures and enums.
+ *
+ */
+
+#ifndef MAX_SLIC_TYPEDEFS_H
+#define MAX_SLIC_TYPEDEFS_H
+
+#include <netinet/in.h>
+#include <net/ethernet.h>
+
+#include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
+
+typedef struct max_event_atomic {
+	uint32_t	event_id;
+} max_event_atomic_t;
+
+typedef struct max_event_startstop {
+	uint32_t	event_id;
+} max_event_startstop_t;
+
+/** \brief Configuration parameters (integers)
+ *  \ingroup configuration
+ *  \internal
+ */
+typedef enum max_config_key_int64 {
+	MAX_CONFIG_PCIE_TIMEOUT,		/**< Default timeout for PCIe streams, in seconds.  Default: 30 seconds */
+	MAX_CONFIG_WFI_TIMEOUT,		    /**< Default timeout for a wait for interrupt, in seconds.  Default: 30 seconds */
+	MAX_CONFIG_TOPOLOGY_TIMEOUT,	/**< Default timeout for a topology request, in seconds. Default: infinity */
+	MAX_CONFIG_DEBUG_MODE,          /**< Default debug mode: See \ref maxdebug.  Default: MAX_DEBUG_NEVER */
+	MAX_CONFIG_SHUTDOWN_TIMEOUT,	/**< Default timeout for max_enable_shutdown_on_exit (networking), in microseconds.  Default: 30 */
+	MAX_CONFIG_DFEPRINTF_TIMEOUT_CYCLES_SIMULATION, /**< Default timeout for the DFEPrintf block in simulation, in ticks.  Default: 100e3 */
+	MAX_CONFIG_DFEPRINTF_TIMEOUT_CYCLES_DFE, /**< Default timeout for the DFEPrintf block on hardware, in ticks.  Default: 600e6 */
+	MAX_CONFIG_NB_INTEGERS 		/* Bookkeeping - Must be last */
+} max_config_key_int64_t;
+
+/** \brief Configuration parameters (booleans)
+ *  \ingroup configuration
+ *  \internal
+ */
+typedef enum max_config_key_bool {
+	MAX_CONFIG_VERBOSE,				/**< Make SLiC verbose.  Default: false */
+	MAX_CONFIG_EVENTLOG_IGNORE_ERROR, 	/**< Ignore errors in the event logging module.  Default: false */
+	MAX_CONFIG_EVENTLOG_ENABLE,		/**< Enable the event logging by default.  Default: false   */
+	MAX_CONFIG_EVENTLOG_DISABLE,		/**< Never start the event logging.   Default: false */
+	MAX_CONFIG_PRINTF_TO_STDOUT,		/**< Whether debug.printf output should also be streamed to standard-output. Default: true. */
+	MAX_CONFIG_STATIC_INTERFACE_ABORT_ON_ERROR, /**< Whether functions of the static interface should abort on error.  Default: true. */
+	MAX_CONFIG_MAXFILE_INIT_ABORT_ON_ERROR, /**< Whether maxfile init should abort on error.  Default: true. */
+	MAX_CONFIG_DISABLE_PCC, /** Disable session pipelining.  Default: False */
+	MAX_CONFIG_DFEPRINTF_ENABLE,	/**< Whether DFE Printf are enabled by default. Default: true */
+	MAX_CONFIG_DFEPRINTF_FORCE_ABRUPT_STOP,	/**< Discard in-flight DFE Printf outputs when releasing an engine.  Default: false */
+	MAX_CONFIG_FIND_NEXT_DEBUG_DIR, /**< Do not reuse a debug directory.  Default: true. See \ref simdebug. */
+	MAX_CONFIG_NET_IP_ADDR_CONFLICT_DETECTION_ENABLE, /**< Enable automatic IP address conflict detection in max_ip_config. Default: true */
+	MAX_CONFIG_NB_BOOLEANS 			/* Bookkeeping - Must be last */
+} max_config_key_bool_t;
+
+/** \brief Configuration parameters (strings)
+ *   \ingroup configuration
+ *   \internal
+ */
+typedef enum max_config_key_string {
+	MAX_CONFIG_DEFAULT_ENGINE_RESOURCE,		    /**< Default engine resource.  Default: '*' */
+	MAX_CONFIG_USE_SIMULATION,					/**< Socket of the DFE emulation daemon No default. */
+	MAX_CONFIG_DISABLE_MAXRING,					/**< Comma-separated list of MaxRing connections to ignore. */
+	MAX_CONFIG_DEFAULT_EVENTLOG_SERVER,		    /**< Event logging server to use when enabled by default.  No default. */
+	MAX_CONFIG_DEFAULT_EVENTLOG_PROCESS_NAME,	/**< Process name to use when enabled by default.  No default */
+	MAX_CONFIG_DEBUG_DIRECTORY,				    /**< Directory to use for debug output and watch data.  Default: debug */
+	MAX_CONFIG_ACTIVITY_FILE,
+	MAX_CONFIG_NB_STRINGS 						/* Bookkeeping - Must be last */
+} max_config_key_string_t;
+
+/** \brief Constants used in the production of a debug snaphot
+ *  \ingroup maxdebug
+ * */
+typedef enum max_debug_mode {
+	MAX_DEBUG_NEVER    = 0, /**< Do not retain any debug information (default) */
+	MAX_DEBUG_ON_ERROR = 1, /**< Retain debug information on error */
+	MAX_DEBUG_ALWAYS   = 2  /**< Always return debug information */
+} max_debug_mode_t;
+
+struct         max_errors;
+typedef struct max_errors max_errors_t;                         /**< Error handle: used to check for errors. */
+
+struct         max_file_internal;
+typedef struct max_file_internal max_file_internal_t;           /**< Internal data holding maxfile design */
+
+struct         max_actions_internal;
+typedef struct max_actions_internal max_actions_internal_t;     /**< Internal data for actions */
+
+struct         max_engine_internal;
+typedef struct max_engine_internal max_engine_internal_t;       /**< Internal data for engine singlets */
+
+struct         max_engarray_internal;
+typedef struct max_engarray_internal max_engarray_internal_t;   /**< Internal data for engine arrays */
+
+struct         max_group_internal;
+typedef struct max_group_internal max_group_internal_t;         /**< Internal data for engine groups */
+
+struct         max_actarray_internal;
+typedef struct max_actarray_internal max_actarray_internal_t;   /**< Internal data for arrays of actions */
+
+struct         max_run_internal;
+typedef struct max_run_internal max_run_internal_t;             /**< Internal data for running actions on engines */
+
+struct         max_handle;
+typedef struct max_handle max_handle_t;                         /**< Internal data holding handles for streams and mapped elements. */
+
+typedef struct max_udp_handle max_udp_handle_t;
+typedef struct max_tcp_handle max_tcp_handle_t;
+
+typedef struct max_udp_socket max_udp_socket_t;
+typedef struct max_tcp_socket max_tcp_socket_t;
+
+typedef struct max_llstream max_llstream_t;
+typedef struct max_framed_stream max_framed_stream_t;
+
+typedef struct max_tcp_socket_status max_tcp_socket_status_t;
+struct max_stream_handle; /* ************* */
+
+/** \brief Actions to run on an engine. */
+typedef struct max_actions {
+	max_errors_t 				*errors;            	/**< \brief Error information (read only) */
+	max_actions_internal_t		*actions_internal;		/**< \brief Private data */
+} max_actions_t;
+
+
+/** \brief Implementation of an engine. */
+typedef struct max_engine {
+	max_errors_t				*errors; 				/**< \brief Error information (read only) */
+	char 						*id;					/**< \brief ID of an engine (read only) */
+	max_engine_internal_t		*engine_internal;		/**< \brief Private data */
+} max_engine_t;
+
+
+/** \brief An array of engines. */
+typedef struct max_engarray {
+	max_errors_t				 *errors; 				/**< \brief Error information (read only) */
+	char 					 	**ids;					/**< \brief The engine IDs: ids[i] contains the name of the i^th engine (read only) */
+	int 						  size;					/**< \brief Number of engines in the array (read only) */
+	max_engarray_internal_t		 *engarray_internal;	/**< \brief Private data */
+} max_engarray_t;
+
+
+/** \brief A group of engines. */
+typedef struct max_group {
+	max_errors_t				*errors;				/**< \brief Error information (read only) */
+	char						*id;					/**< \brief The ID of the group (read only) */
+	max_group_internal_t	 	*group_internal;		/**< \brief Private data */
+} max_group_t;
+
+
+/** \brief An array of actions. */
+typedef struct max_actarray {
+	max_errors_t				*errors;			 	/**< \brief Error information (read only) */
+	int 					 	 size;					/**< \brief Number of actions in the array (read only) */
+	max_actarray_internal_t		*actarray_internal;		/**< \brief Private data */
+} max_actarray_t;
+
+
+/** \brief Implementation of a maxfile. */
+typedef struct max_file {
+	max_errors_t				*errors;				/**< \brief Error information (read only) */
+	max_file_internal_t 		*maxfile_internal;		/**< \brief Private data */
+} max_file_t;
+
+/** \brief Details maintained while running data on an engine. */
+typedef struct max_run {
+	max_errors_t				*errors;				/**< \brief Error information (read only) */
+	max_run_internal_t			*run_internal;			/**< \brief Private data */
+} max_run_t;
+
+
+/** \brief Defines the sharing properties of a group of engines. */
+typedef enum max_sharing_mode {
+	MAXOS_EXCLUSIVE = 1,         /**< Allocate the group of engines for exclusive use */
+	MAXOS_SHARED,                /**< Fine-grain sharing between processes, where no maxfile loading takes place except on creating the group. */
+	MAXOS_SHARED_DYNAMIC,        /**< Allows the system to re-size the group and load/unload engines without explicit instruction from the user. */
+	/*-------------------- allow for bad values */
+	MAXOS_SHARING_PROPS_BAD = -1 /**< Error: invalid setting of sharing properties. */
+} max_sharing_mode_t;
+
+/**
+ * \brief Physical network connections.
+ */
+typedef enum max_net_connection {
+	/** SFP transceiver 1 */
+	MAX_NET_CONNECTION_CH2_SFP1	= 0,
+	/** SFP transceiver 2 */
+	MAX_NET_CONNECTION_CH2_SFP2	= 1,
+
+	MAX_NET_CONNECTION_QSFP_TOP_10G_PORT1,
+	MAX_NET_CONNECTION_QSFP_TOP_10G_PORT2,
+	MAX_NET_CONNECTION_QSFP_TOP_10G_PORT3,
+	MAX_NET_CONNECTION_QSFP_TOP_10G_PORT4,
+
+	MAX_NET_CONNECTION_QSFP_MID_10G_PORT1,
+	MAX_NET_CONNECTION_QSFP_MID_10G_PORT2,
+	MAX_NET_CONNECTION_QSFP_MID_10G_PORT3,
+	MAX_NET_CONNECTION_QSFP_MID_10G_PORT4,
+
+	MAX_NET_CONNECTION_QSFP_BOT_10G_PORT1,
+	MAX_NET_CONNECTION_QSFP_BOT_10G_PORT2,
+	MAX_NET_CONNECTION_QSFP_BOT_10G_PORT3,
+	MAX_NET_CONNECTION_QSFP_BOT_10G_PORT4,
+
+	MAX_NET_CONNECTION_QSFP_TOP_40G,
+	MAX_NET_CONNECTION_QSFP_MID_40G,
+	MAX_NET_CONNECTION_QSFP_BOT_40G,
+
+	MAX_NET_CONNECTION_INVALID=9999
+} max_net_connection_t;
+
+/**
+ * \brief Ethernet manual CHECKSUM_BAD flag modes.
+ */
+typedef enum max_net_manual_checksum_bad {
+	/** Don't change CHECKSUM_BAD flag */
+	MAX_NET_MANUAL_CHECKSUM_BAD_DISABLED       = 0,
+	/** Always set CHECKSUM_BAD flag */
+	MAX_NET_MANUAL_CHECKSUM_BAD_ALWAYS_0       = 1,
+	/** Always clear CHECKSUM_BAD flag */
+	MAX_NET_MANUAL_CHECKSUM_BAD_ALWAYS_1       = 2,
+	/** Set CHECKSUM_BAD flag to the value of the last payload bit */
+	MAX_NET_MANUAL_CHECKSUM_BAD_LAST_DATA_BIT  = 3
+} max_net_manual_checksum_bad_t;
+
+/**
+ * \brief TCP connection states.
+ *
+ * The available states are a subset of those described in RFC 793 and include
+ * an additional ::MAX_TCP_STATE_CLOSED_DATA_PENDING state.
+ *
+ */
+typedef enum max_tcp_connection_state {
+	/** Closed */
+	MAX_TCP_STATE_CLOSED      = 0,
+	/** Waiting for remote host to connect */
+	MAX_TCP_STATE_LISTEN      = 1,
+	/** Connected to remote host */
+	MAX_TCP_STATE_ESTABLISHED = 4,
+	/** Remote host has closed connection, waiting for local close */
+	MAX_TCP_STATE_CLOSE_WAIT  = 5,
+	/** Closed but received data waiting in DFE to be processed */
+	MAX_TCP_STATE_CLOSED_DATA_PENDING = 13
+} max_tcp_connection_state_t;
+
+/**
+ * \brief TCP socket close modes.
+ */
+typedef enum max_tcp_close_mode {
+	/** Orderly close, keep received data in DFE buffer until processed (see ::MAX_TCP_STATE_CLOSED_DATA_PENDING). */
+	MAX_TCP_CLOSE_GRACEFUL,
+	/** Abort connection by sending TCP reset, discard any received but unprocessed data. */
+	MAX_TCP_CLOSE_ABORT_RESET,
+	/** Abort connection silently, discard any received but unprocessed data. */
+	MAX_TCP_CLOSE_ABORT_NO_RESET
+} max_tcp_close_mode_t;
+
+/**
+ * \brief TCP receive decoder configurations.
+ */
+typedef enum max_tcp_sized_config {
+	MAX_TCP_FIX_4_2                = 0x5203180,
+	MAX_TCP_SOUPBINTCP             = 0x0800800,
+	MAX_TCP_ETI                    = 0x0000800,
+	MAX_TCP_STATIC_DECODER_ENABLE  = 0x0000000
+} max_tcp_sized_config_t;
+
+/**
+ * \brief ARP table entry type (flag)
+ */
+typedef enum {
+	MAX_ARP_ENTRY_STATIC,
+	MAX_ARP_ENTRY_COMPLETE,
+	MAX_ARP_ENTRY_INCOMPLETE
+} max_arp_table_entry_type_t;
+
+/**
+ * \brief ARP table entry
+ */
+typedef struct {
+	struct in_addr              ip;
+	struct ether_addr           mac;
+	max_arp_table_entry_type_t  entry_type;
+} max_arp_table_entry_t;
+
+/**
+ * \brief IP routing table entry
+ */
+typedef struct {
+	struct in_addr destination;
+	struct in_addr netmask;
+	struct in_addr gateway;
+} max_ip_routing_table_entry_t;
+
+#endif /* MAX_SLIC_TYPEDEFS_H */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to the management of groups of engines.
+ *
+ */
+
+#ifndef SLIC_GROUP_H_
+#define SLIC_GROUP_H_
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Allocate a group of engines.
+	 *
+	 * \param max_file the ::max_file_t structure indicating the capabilities required
+	 * \param sharing_mode the sharing mode of the group; see notes below.
+	 * \param group_id location of the engines.  The format of this
+	 *                 string is described in \ref engine_naming.
+	 * \param group_size the number of engines required.
+	 * \return a group of engines
+	 * \ingroup group
+	 *
+	 * The \b sharing_mode must be set to one of the following &mdash;
+	 * - \b MAXOS_EXCLUSIVE : this is also the default behaviour when not using groups. 
+	 *           No other process can use an engine that belongs to a group allocated
+	 *           using this mode.
+	 * - \b MAXOS_SHARED : this mode is used for fine-grain sharing between processes,
+	 *           where no maxfile loading takes place except on creating the group. 
+	 * - \b MAXOS_SHARED_DYNAMIC : this allows the system to re-size the group
+	 *           and load/unload engines without explicit instruction from the user. 
+	 *
+	 */
+	max_group_t* max_load_group(
+		max_file_t					*max_file,
+		max_sharing_mode_t         	 sharing_mode,
+		const char 					*group_id,
+		int							 group_size);
+
+	/**
+	 * \brief Lock one of the engines of the group.
+	 * \param group the group to use.
+	 * \return a locked engine
+	 * \ingroup group
+	 *
+	 * \note Note that this call will \b block until an engine can be locked;
+	 * this enables, for example, a single engine in a group to be shared
+	 * between several threads in a process.
+	 *
+	 * The engine should later be unlocked by way of ::max_unlock.
+	 */
+	max_engine_t* max_lock_any(
+		max_group_t *group);
+
+	/**
+	 * \brief Deallocate a group.
+	 * \param group the group to unload and deallocate.
+	 * \ingroup group
+	 *
+	 * A group should only be unloaded after &mdash;
+	 * - all the engines it has issued by way of ::max_lock_any have
+	 *   been unlocked, and
+	 * - all runs launched by way of ::max_run_group_nonblock have been
+	 *   captured with ::max_wait.
+	 *
+	 */
+	void max_unload_group(
+		max_group_t *group);
+
+
+	/**
+	 * \brief Run actions on one of the engines of the group
+	 * \param group the group to use
+	 * \param actions the actions to run
+	 * \ingroup group
+	 *
+	 * The function returns after the run is completed, unless an error occurred.
+	 */
+	void max_run_group(
+		max_group_t		*group,
+		max_actions_t 	*actions);
+
+
+	/**
+	 * \brief Run actions on one of the engines of the group in non blocking mode.
+	 * \param group the group to use.
+	 * \param actions the actions to run.
+	 * \return a handle on the execution status of the actions
+	 * \ingroup group
+	 *
+	 * Schedule the actions to run on the engines, and return immediately.
+	 * It is possible to block until the run is completed, by calling ::max_wait.
+	 *
+	 * Computations launched with this function may be executed out of sequence;
+	 * and so, because of this, it is prohibited to call ::max_nowait with the
+	 * return value of this function.
+	 * For example, consider the snippet:
+	 * \code
+	 *    max_run_t *run0 = max_run_group_nonblock( group, actions0 );
+	 *    max_run_t *run1 = max_run_group_nonblock( group, actions1 );
+	 *    ...
+	 *    // some CPU work
+	 *    ...
+	 *    max_nowait( run0 );  // this is not allowed in practice!
+	 *    max_wait  ( run1 );
+	 *    ...
+	 *    max_actions_free( actions0 );
+	 *    max_actions_free( actions1 );
+	 *    max_unload_group( group );
+	 * \endcode
+	 * This does not necessarily do what one might expect, because, in stateless mode,
+	 * the order of execution and termination of jobs is not guaranteed.
+	 * Hence \c run0 might still be active after <tt>max_wait(run1)</tt> has returned;
+	 * so the program might crash when the associated data structures are deallocated,
+	 * even though the code looks correct and will work correctly some of the time.
+	 *
+	 */
+	max_run_t* max_run_group_nonblock(
+		max_group_t 	*group,
+		max_actions_t 	*actions);
+
+
+	/**
+	 * \brief Run a list of actions on one of the engines of the group
+	 * \param group the group to use
+	 * \param arr_actions the array of actions to run
+	 * \param nb_actions the size of the array of actions
+	 * \ingroup group
+	 *
+	 * The function returns after the run is completed, unless an error occurred.
+	 *
+	 * \internal
+	 * Group operations are stateless and SLiC has no control of which engine is used:
+	 * therefore, to run an array of actions on the same engine, we must lock an engine,
+	 * call the engine-based function to run all the actions, and then unlock the engine.
+	 *
+	 * There is no corresponding non-blocked version of this call, because the engine
+	 * would not be able to be unlocked before returning the max_run_t* object.
+	 */
+	void max_run_group_multi(
+		max_group_t     *group,
+		max_actions_t  **arr_actions,
+		int              nb_actions);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_GROUP_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to data streaming.
+ *
+ */
+
+#include "slic_typedefs.h"
+
+#ifndef SLIC_STREAM_H_
+#define SLIC_STREAM_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Add data to an input stream
+	 * \ingroup streams
+	 * \param actions the actions to modify
+	 * \param stream_name the name of the stream to add to
+	 * \param data the data added
+	 * \param bytes size of the data added
+	 *
+	 */
+	void max_queue_input(
+		max_actions_t 	*actions,
+		const char 		*stream_name,
+		const void 		*data,
+		size_t			 bytes);
+
+	/**
+	 * \brief Add data storage space for an output stream
+	 * \ingroup streams
+	 * \param actions the actions to modify
+	 * \param stream_name the name of the stream to add to
+	 * \param data the storage space to add
+	 * \param bytes size of the storage space
+	 *
+	 */
+	void max_queue_output(
+		max_actions_t 	*actions,
+		const char 		*stream_name,
+		void 			*data,
+		size_t			 bytes);
+
+	/**
+	 * \internal
+	 * \brief Add actions to receive an output stream and discard its contents.
+	 * This is used internally where a stream-sync signal is needed but
+	 * the stream contents are not required.
+	 * \ingroup streams
+	 * \param actions the actions to modify
+	 * \param stream_name the name of the stream to add to
+	 * \param bytes size of the storage space
+	 */
+	void max_queue_output_discard(
+		max_actions_t   *actions,
+		const char      *stream_name,
+		size_t           bytes);
+
+	/**
+	 * \brief Clear all queued streams from actions.
+	 *
+	 * The actions, once set up, can be re-used to apply the same
+	 * list of operations over and over again.
+	 * It may be desirable to retain most of the actions, such
+	 * as setting scalar parameter values, but to clear out the
+	 * streaming operations, so that pointers to different
+	 * data areas can be used for different runs.
+	 * This function clears the stream queue operations from the
+	 * supplied actions, leaving the rest of the actions
+	 * untouched.
+	 *
+	 * \ingroup streams
+	 * \param actions the actions to modify
+	 *
+	 */
+	void max_clear_queues(
+		max_actions_t *actions);
+
+	/**
+	 * \brief Mark a stream as valid regardless of its configuration
+	 *
+	 * \param actions the actions to modify
+	 * \param stream_name the name of the stream
+	 * \ingroup validation
+	 */
+	void max_ignore_stream(
+		max_actions_t *actions,
+		const char    *stream_name);
+
+	/**
+	 * \brief Disable the sync for a stream. Does not work on MPC-X.
+	 *
+     * \ingroup streams
+     * \param actions the actions to modify
+     * \param stream_name the name of the stream
+	 */
+	void max_disable_stream_sync(
+	    max_actions_t *actions,
+	    const char    *stream_name);
+
+	/**
+	 * \brief Add a sync call for a stream. Does not work on MPC-X.
+	 *
+     * \ingroup streams
+     * \param actions the actions to modify
+     * \param stream_name the name of the stream
+	 */
+	void max_sync_stream(
+	    max_actions_t *actions,
+	    const char    *stream_name);
+
+	/**
+	 * \brief Check whether handle for a stream exists.
+	 *
+	 * \param maxfile the maxfile in use
+	 * \param name the name of the stream
+	 * \return 1=handle exists; 0=handle not found.
+	 * \ingroup streams
+	 */
+	int max_has_handle_stream(
+		max_file_t	*maxfile,
+		const char	*name);
+
+
+	/**
+	 * \brief Obtain a handle for a stream.
+	 *
+	 * \note Note that the handle itself is \b read-only and
+	 * <i>must not be freed</i> by the user.
+	 *
+	 * \param maxfile the maxfile in use
+	 * \param name the name of the stream
+	 * \return a handle to the stream.
+	 * \ingroup streams
+	 */
+	const max_handle_t* max_get_handle_stream(
+		max_file_t	*maxfile,
+		const char	*name);
+
+	/**
+	 * \brief Add data to an input stream by way of a stream handle
+	 * \param actions the actions to modify.
+	 * \param handle  is the handle representing the stream to add to.
+	 * \param data    the data added.
+	 * \param bytes   size of the data added.
+	 * \ingroup streams
+	 */
+	void max_queue_input_handle(
+		max_actions_t       *actions,
+		const max_handle_t  *handle,
+		const void          *data,
+		size_t               bytes);
+
+	/**
+	 * \brief Add data storage space for an output stream by way of a stream handle
+	 * \param actions the actions to modify
+	 * \param handle  the handle representing the stream to add to
+	 * \param data    the storage space to add
+	 * \param bytes   size of the storage space
+	 * \ingroup streams
+	 */
+	void max_queue_output_handle(
+		max_actions_t       *actions,
+		const max_handle_t  *handle,
+		void                *data,
+		size_t               bytes);
+
+	/**
+	 * \brief Explicitely register buffer and keep it registered for infiniband
+	 *
+	 * Use to avoid repeated registration/deregistration of memory for infiniband
+	 * transfers. This marks a buffer as explicitely registered and not eligible
+	 * for automatic deregistration. This speeds up streaming at the cost of
+	 * used memory.
+	 *
+	 * \param addr	address of the buffer
+	 * \param size	size of the buffer
+	 */
+	void max_register_buffer(
+		void				*addr,
+		size_t				size);
+
+	/**
+	 * \brief Explicitely deregister buffer and remove it from the list of cached addresses
+	 *
+	 * Deregister memory buffer and remove it from the list of cached addresses.
+	 * This will make the buffer use automatic registration/deregistration
+	 * which is slower but will release memory.
+	 *
+	 * \param addr	address of the buffer
+	 */
+	void max_deregister_buffer(
+		void				*addr);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_STREAM_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/** \file
+ * Functions related to networking
+ */
+
+#ifndef SLIC_NETWORK_H_
+#define SLIC_NETWORK_H_
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
+
+#include "slic_engine.h"
+#include "slic_typedefs.h"
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Get the default MAC address for a network connection.
+	 * \ingroup networking
+	 * @param engine the engine to use
+	 * @param connection the network connection to retrieve the MAC address for
+	 * @param [out] mac pointer to a ether_addr struct to receive the MAC address
+	 */
+	void max_eth_get_default_mac_address(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		struct ether_addr       *mac);
+
+
+	/**
+	 * \brief Manually set the CHECKSUM_BAD flag in the Ethernet bus type
+	 * \ingroup networking
+	 *
+	 * For testing and debugging purposes, the CHECKSUM_BAD flag can be set to a constant
+	 * value or a bit taken from the Ethernet frame payload.
+	 *
+	 * @param engine the engine to use
+	 * @param connection a network connection
+	 * @param mode checksum mode to use
+	 */
+	void max_net_set_manual_checksum_bad(
+		max_engine_t					*engine,
+		max_net_connection_t             connection,
+		max_net_manual_checksum_bad_t    mode);
+
+	/**
+	 * \brief Look up a MAC address in the internal ARP cache.
+	 * \ingroup networking
+	 *
+	 * Note that this function will search the current ARP cache but not initiate
+	 * new ARP requests.
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection associated with the ARP cache
+	 * @param ip IP address of the host of interest
+	 * @param [out] mac pointer to an ether_addr struct to receive the MAC address
+	 * @return zero if a MAC address for the specified IP address was found in the
+	 *         ARP cache, non-zero otherwise
+	 */
+	int max_arp_get_entry(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*ip,
+		struct ether_addr 		*mac);
+
+	/**
+	 * \brief Look up a MAC address, initiating an ARP request if necessary
+	 * \ingroup networking
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection associated with the ARP cache
+	 * @param ip IP address of the host of interest
+	 * @param [out] mac pointer to an ether_addr struct to receive the MAC address
+	 * @return zero if a MAC address for the specified IP address could be retrieved,
+	 *         non-zero otherwise
+	 */
+	int max_arp_lookup_entry(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*ip,
+		struct ether_addr 		*mac);
+
+	/**
+	 * \brief Remove the internal ARP cache entry for an IP address.
+	 * \ingroup networking
+	 * @param engine the engine to use
+	 * @param connection network connection associated with the ARP cache
+	 * @param ip IP address of the entry to remove
+	 */
+	void max_arp_remove_entry(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*ip);
+
+	/**
+	 * \brief Add a static ARP entry for an IP address to the internal ARP cache.
+	 * \ingroup networking
+	 * @param engine the engine to use
+	 * @param connection network connection associated with the ARP cache
+	 * @param ip IP address to add an ARP entry for
+	 * @param mac MAC address to be associated with the new ARP entry
+	 */
+	void max_arp_add_entry(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*ip,
+		const struct ether_addr *mac);
+
+	/**
+	 * \brief Return a copy of the current ARP table of a network connection.
+	 * \ingroup networking
+	 * @param engine the engine to use
+	 * @param connection network connection to retrieve the ARP table dump for
+	 * @param [out] table pointer to receive the ARP table dump as an array of
+	 *        max_arp_table_entry_t elements. Memory is allocated automatically
+	 *        by max_arp_get_table_dump.
+	 * @param [out] num_table_entries number of entries in \a table.
+	 */
+	void max_arp_get_table_dump(
+		max_engine_t			 *engine,
+		max_net_connection_t	  connection,
+		max_arp_table_entry_t	**table,
+		int32_t					 *num_table_entries);
+
+	/**
+	 * \brief Destroy an ARP table copy previously returned by
+	 *        max_arp_get_table_dump.
+	 * \ingroup networking
+	 * @param engine the engine to use
+	 * @param table pointer to an ARP table copy previously returned by
+	 *        max_arp_get_table_dump
+	 */
+	void max_arp_free_table_dump(
+		max_engine_t			*engine,
+		max_arp_table_entry_t	*table);
+
+	/**
+	 * \brief Set the IP address and netmask of a network connection.
+	 * \ingroup networking_ip
+	 * @param engine the engine to use
+	 * @param connection the network connection to configure
+	 * @param ip new IP address for the network connection
+	 * @param netmask new netmask address for the network connection
+	 */
+	void max_ip_config(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr	*ip,
+		const struct in_addr	*netmask);
+
+	/**
+	 * \brief Join an IP multicast group on a network connection.
+	 * \ingroup networking_ip
+	 * A network connection may join multiple multicast groups.
+	 *
+	 * Every network connection is implicitly member of the All Hosts
+	 * group (224.0.0.1).
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to join the multicast group
+	 * @param multicast_ip multicast group to join
+	 */
+	void max_ip_multicast_join_group(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*multicast_ip);
+
+
+	/**
+	 * \brief Leave an IP multicast group on a network connection.
+	 * \ingroup networking_ip
+	 *
+	 * Leaving the All Hosts group (224.0.0.1) has no effect.
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to leave the multicast group
+	 * @param multicast_ip multicast group to leave
+	 */
+	void max_ip_multicast_leave_group(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*multicast_ip);
+
+
+	/**
+	 * \brief Return all current IP multicast group memberships of a network connection.
+	 * \ingroup networking_ip
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to retrieve the memberships for
+	 * @param multicast_groups [out] groups pointer to receive an array of the current multicast
+	 *        group IPs. Memory is allocated automatically by
+	 *        max_ip_multicast_get_group_dump.
+	 * @param num_multicast_groups [out] num_groups number of entries in \a groups.
+	 */
+	void max_ip_multicast_get_group_dump(
+		max_engine_t			 *engine,
+		max_net_connection_t	  connection,
+		struct in_addr			**multicast_groups,
+		int32_t					 *num_multicast_groups);
+
+
+	/**
+	 * \brief Destroy the IP multicast membership information previously
+	 *        returned by max_ip_multicast_get_group_dump.
+	 * \ingroup networking_ip
+	 *
+	 * @param engine the engine to use
+	 * @param multicast_groups pointer to multicast membership information previously
+	 *        returned by max_ip_multicast_get_group_dump
+	 */
+	void max_ip_multicast_free_group_dump(
+		max_engine_t			*engine,
+		struct in_addr			*multicast_groups);
+
+
+	/**
+	 * \brief Set the default gateway for a network connection.
+	 * \ingroup networking_ip
+	 *
+	 * This is equivalent to calling ::max_ip_route_add with destination
+	 * 0.0.0.0, netmask 0.0.0.0 and the desired default gateway address.
+	 *
+	 * Multiple calls to ::max_ip_route_set_default_gw result in the previous
+	 * setting being overridden.
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to set the default gateway for
+	 * @param gateway default gateway address. The default gateway must reside
+	 *                on the same subnet as the specified \a connection.
+	 */
+	void max_ip_route_set_default_gw(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*gateway);
+
+
+	/**
+	 * \brief Add an entry to an IP routing table.
+	 * \ingroup networking_ip
+	 *
+	 * A route for the local network (as specified with ::max_ip_config) is
+	 * automatically added to the routing table during initialisation.
+	 *
+	 * The routing table may only contain one entry for each destination and
+	 * netmask pair at a time.
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to add the route for
+	 * @param destination destination address of the route to be added
+	 * @param netmask netmask of the route to be added
+	 * @param gateway gateway address of the route to be added.
+	 *                A gateway address of 0.0.0.0 implies that the destination
+	 *                network is directly connected.
+	 */
+	void max_ip_route_add(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*destination,
+		const struct in_addr 	*netmask,
+		const struct in_addr 	*gateway);
+
+
+	/**
+	 * \brief Remove an entry from an IP routing table.
+	 * \ingroup networking_ip
+	 *
+	 * The default route (if set) and the automatically
+	 * added route for the directly connected network can be removed
+	 * from the routing table manually.
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to remove the route from
+	 * @param destination destination address of the route to be removed
+	 * @param netmask netmask of the route to be removed
+	 */
+	void max_ip_route_remove(
+		max_engine_t			*engine,
+		max_net_connection_t 	 connection,
+		const struct in_addr 	*destination,
+		const struct in_addr 	*netmask);
+
+	/**
+	 * \brief Retrieve an entry from an IP routing table.
+	 * \ingroup networking_ip
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to retrieve the route from
+	 * @param destination destination address of the route to be retrieved
+	 * @param netmask netmask of the route to be retrieved
+	 * @param [out] gateway pointer to an in_addr struct to receive the
+	 *                      gateway address of the route
+	 * @return zero if an entry for the specified destination and netmask
+	 *         was found in the routing table, non-zero otherwise
+	 *
+	 */
+	int max_ip_route_get(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*destination,
+		const struct in_addr 	*netmask,
+		struct in_addr 			*gateway);
+
+	/**
+	 * \brief Return a copy of the current routing table of a network connection.
+	 * \ingroup networking_ip
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to retrieve the routing table dump for
+	 * @param [out] table pointer to receive the ARP table dump as an array of
+	 *        max_ip_routing_table_entry_t elements. Memory is allocated
+	 *        automatically by max_ip_route_get_table_dump.
+	 * @param [out] num_table_entries number of entries in \a table.
+	 */
+	void max_ip_route_get_table_dump(
+		max_engine_t					 *engine,
+		max_net_connection_t			  connection,
+		max_ip_routing_table_entry_t	**table,
+		int32_t							 *num_table_entries);
+
+	/**
+	 * \brief Destroy a routing table copy previously returned by
+	 *        max_ip_route_get_table_dump.
+	 * \ingroup networking_ip
+	 *
+	 * @param engine the engine to use
+	 * @param table pointer to a routing table copy previously returned by
+	 *        max_ip_route_get_table_dump
+	 */
+	void max_ip_route_free_table_dump(
+		max_engine_t					*engine,
+		max_ip_routing_table_entry_t	*table);
+
+	/**
+	 * \brief Return the next routing hop on the path to a destination address
+	 * \ingroup networking_ip
+	 *
+	 * @param engine the engine to use
+	 * @param connection network connection to retrieve the route from
+	 * @param destination destination address of the route to be retrieved
+	 * @param [out] next_hop pointer to an in_addr struct to receive the
+	 *                       next hop
+	 * @return
+	 */
+	void max_ip_route_get_next_hop(
+		max_engine_t			*engine,
+		max_net_connection_t	 connection,
+		const struct in_addr 	*destination,
+		struct in_addr			*next_hop);
+
+	/**
+	* \brief    Indicate whether the time source in the design has reached a valid value
+	*           and synchronisation error is less than the specified threshold (default value 1us)
+	* \ingroup networking
+	* \param    engine the engine to use
+	* \return   1 if valid, 0 otherwise.
+	*/
+	int max_is_timesource_ready(max_engine_t *engine);
+
+	/**
+	* \brief    Sets the threshold under which the doubt bit is set on the hardware timestamp stream.
+	*           The function max_is_timesource_valid consider the time source is ready only when the
+	*           error is below the set threshold.
+	*           Default value of the threshold is 1us.
+	*           The threshold is reset to default at ::max_reset_engine.
+	* \ingroup networking
+	* \param    engine  the engine to use
+	* \param    nsecs   Threshold in nanoseconds. Minimum value is 100.
+	*/
+	void max_set_timesource_threshold(
+		max_engine_t	*engine,
+		uint32_t		 nsecs);
+
+	/**
+	 * \brief	Send an ICMP echo (ping) message and wait for a reply.
+	 * \ingroup networking
+	 * \param   engine  the engine to use
+	 * \param	connection network connection used to send the ping
+	 * \param 	ip IP address of the host to ping
+	 * \param 	payload_size size of the ICMP request payload
+	 * \param	ttl time-to-live of the ICMP request packet
+	 * \param	timeout maximum time to wait for a reply, in microsecond
+	 * \param	roundtrip round trip time of the ping probe, in microsecond
+ 	 * \param	reply_ttl time-to-live of the received ICMP reply packet
+ 	 *
+	 * \return 0 on success, non-zero on failure
+	 *
+	 * The timeout parameter excludes the time taken by ARP operations.
+	 *
+	 */
+	int max_icmp_echo_request(
+			max_engine_t			*engine,
+			max_net_connection_t	 connection,
+			const struct in_addr 	*ip,
+			size_t					 payload_size,
+			uint8_t					 ttl,
+			uint32_t 				 timeout,
+			uint32_t 				*roundtrip,
+			uint8_t					*reply_ttl);
+
+	/**
+	 * \brief	Send an ICMP echo (ping) message and wait for a reply.
+	 * \ingroup networking
+	 * \param   engine  the engine to use
+	 * \param	connection network connection used to send the ping
+	 * \param 	ip IP address of the host to ping
+	 * \param 	payload_size size of the ICMP request payload
+	 * \param	ttl time-to-live of the ICMP request packet
+	 * \param	id id of the ICMP packet
+	 * \param 	seq sequence number of the ICMP packet
+	 * \param	timeout maximum time to wait for a reply, in microsecond
+	 * \param	roundtrip round trip time of the ping probe, in microsecond
+	 * \param	reply_ttl time-to-live of the received ICMP reply packet
+	 *
+	 * \return 0 on success, non-zero on failure
+	 *
+	 * This function is identical to ::max_icmp_echo_request except for allowing
+	 * the user to specify the id and seq fields of the ICMP packet
+	 *
+	 */
+	int max_icmp_echo_request_advanced(
+			max_engine_t			*engine,
+			max_net_connection_t	 connection,
+			const struct in_addr 	*ip,
+			size_t					 payload_size,
+			uint8_t					 ttl,
+			uint16_t				 id,
+			uint16_t				 seq,
+			uint32_t 				 timeout,
+			uint32_t 				*roundtrip,
+			uint8_t					*reply_ttl);
+
+	/**
+	 * \brief Enable or disable the ICMP echo server for a connection (default: enabled).
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 * @param enable enable or disable the ICMP echo server?
+	 *
+	 * This function will fail if ICMP echo support was explicitly disabled when
+	 * building the maxfile.
+	 */
+	void max_icmp_echo_enable_server(
+			max_engine_t			*engine,
+			max_net_connection_t	 connection,
+			int                      enable);
+
+	/**
+	 * \brief Query if ICMP echo server is enabled or disabled.
+	 *
+	 * @param engine the engine to use
+	 * @param connection the connection to configure
+	 *
+	 * @return 1 if ICMP echo server is enabled, 0 otherwise.
+	 */
+	int max_icmp_echo_server_is_enabled(
+			max_engine_t			*engine,
+			max_net_connection_t	 connection);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_NETWORK_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/** \file
+ * Functions related to UDP networking.
+ */
+
+#ifndef SLIC_UDP_H
+#define SLIC_UDP_H
+
+#include "slic_typedefs.h"
+
+#include <net/ethernet.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Create a UDP socket.
+	 * \ingroup networking_udp
+	 *
+	 * A socket number will assigned to the socket automatically.
+	 * Use ::max_udp_get_socket_number to retrieve the socket number.
+	 *
+	 * All sockets must be created before the first call to ::max_udp_bind, ::max_udp_bind_ip or ::max_udp_connect.
+	 * Trying to create additional sockets at any point after one of these functions has been called will
+	 * result in an error.
+	 *
+	 * @param engine the engine to use
+	 * @param stream_name name of the UDP stream the socket shall be associated with
+	 * @return handle to the newly created UDP socket
+	 */
+	max_udp_socket_t* max_udp_create_socket(
+		max_engine_t	*engine,
+		const char		*stream_name);
+
+	/**
+	 * \brief Create a UDP socket with a specific socket number.
+	 * \ingroup networking_udp
+	 *
+	 * All sockets must be created before the first call to ::max_udp_bind, ::max_udp_bind_ip or ::max_udp_connect.
+	 * Trying to create additional sockets at any point after one of these functions has been called will
+	 * result in an error.
+	 *
+	 * @param engine the engine to use
+	 * @param stream_name name of the UDP stream the socket shall be associated with
+	 * @param socket_number number between 0 and 15 inclusive
+	 * @return handle to the newly created UDP socket
+	 */
+	max_udp_socket_t* max_udp_create_socket_with_number(
+		max_engine_t	*engine,
+		const char		*stream_name,
+		uint16_t		 socket_number);
+
+	/**
+	 * \brief Bind a socket to a local port and start receiving data.
+	 * \ingroup networking_udp
+	 *
+	 * The socket will only receive data sent to the specified port and the local IP address that
+	 * has been configured with ::max_ip_config.
+	 *
+	 * After calling ::max_udp_bind no additional UDP sockets can be created.
+	 *
+	 * @param udp_socket socket handle returned by ::max_udp_create_socket
+	 * @param local_port port to bind the socket to. Binding to a port that is already in use will
+	 *        result in an error. If \a local_port is zero, an unused port in
+	 *        the ephemeral range [32768, 61000] will be selected automatically.
+	 */
+	void max_udp_bind(
+		max_udp_socket_t 	*udp_socket,
+		uint16_t			 local_port);
+
+	/**
+	 * \brief Bind a socket to a local port and multicast IP address and start receiving data.
+	 * \ingroup networking_udp
+	 *
+	 * The socket will only receive data sent to the specified port and multicast IP address. Please note
+	 * that ::max_udp_bind_ip currently only supports binding to multicast IP addresses.
+	 *
+	 * After calling ::max_udp_bind_ip no additional UDP sockets can be created.
+	 *
+	 * @param udp_socket socket handle returned by ::max_udp_create_socket
+	 * @param local_ip IP address of a multicast group. The network connection associated with the socket must
+	 *        be a member of the multicast group, otherwise no data can be received (see ::max_ip_multicast_join_group).
+	 * @param local_port port to bind the socket to. Binding to a port that is already in use
+	 *        results in an error. If \a local_port is zero, an unused port in
+	 *        the ephemeral range [32768, 61000] is selected automatically.
+	 */
+	void max_udp_bind_ip(
+		max_udp_socket_t 		*udp_socket,
+		const struct in_addr 	*local_ip,
+		uint16_t				 local_port);
+
+	/**
+	 * \brief Connect a socket to a remote host.
+	 * \ingroup networking_udp
+	 *
+	 * Once the socket is connected data can be sent to the remote host. The socket will
+	 * only receive data originating from the remote host.
+	 *
+	 * If the socket has not been bound with ::max_udp_bind an unused local port
+	 * in the ephemeral range [32768, 61000] is assigned automatically.
+	 *
+	 * Sockets in one-to-many mode cannot be connected.
+	 *
+	 * After calling ::max_udp_connect no additional UDP sockets can be created.
+	 *
+	 * @param udp_socket socket handle returned by ::max_udp_create_socket
+	 * @param remote_ip IP address of the remote host to connect to
+	 * @param remote_port a port on the remote host
+	 */
+	void max_udp_connect(
+		max_udp_socket_t 		*udp_socket,
+		const struct in_addr 	*remote_ip,
+		uint16_t				 remote_port);
+
+	/**
+	 * \brief Set the IP Time to Live for packets originating from a socket.
+	 * \ingroup networking_udp
+	 *
+	 * @param udp_socket socket handle returned by ::max_udp_create_socket
+	 * @param ttl Time to Live value between 1 and 255 inclusive.
+	 */
+	void max_udp_set_ttl(
+		max_udp_socket_t 	*udp_socket,
+		uint8_t				 ttl);
+
+	/**
+	 * \brief Retrieve the socket number of a socket.
+	 * \ingroup networking_udp
+	 *
+	 * @param udp_socket socket handle returned by ::max_udp_create_socket
+	 * @return socket number between 0 and 15 inclusive associated with the socket
+	 */
+	uint16_t max_udp_get_socket_number(
+		max_udp_socket_t 		*udp_socket);
+
+	/**
+	 * \brief Retrieve the network connection associated with a UDP stream.
+	 * \ingroup networking_udp
+	 *
+	 * @param maxfile MaxFile containing the stream of interest
+	 * @param stream_name name of the stream
+	 * @return the connection associated with the stream
+	 */
+	max_net_connection_t max_udp_get_network_connection(
+		max_file_t		*maxfile,
+		const char		*stream_name);
+
+	/**
+	 * \brief Close a socket.
+	 * \ingroup networking_udp
+	 *
+	 * The socket will no longer be able to receive or transmit data.
+	 *
+	 * @param udp_socket socket handle returned by ::max_udp_create_socket
+	 *
+	 */
+	void max_udp_close(
+		max_udp_socket_t	*udp_socket);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* !defined(SLIC_UDP_H) */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/** \file
+ * Functions related to Framed Streams
+ */
+
+#ifndef SLIC_FRAMED_STREAMS_H_
+#define SLIC_FRAMED_STREAMS_H_
+
+#include "slic_typedefs.h"
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Setup a framed stream.
+	 *
+	 * @param engine the engine to use
+	 * @param name name of the stream associated with the socket
+	 * @param buffer pointer to a buffer large enough to contain frames.
+	 *        This will be used as a ring buffer.
+	 * @param buffer_size the size in bytes of the buffer pointed to by 'buffer'
+	 * @param max_frame_size maximum size of a single frame. Only applicable for stream From CPU. Ignored in stream To CPU.
+	 * @return new framed stream
+	 * \ingroup framed_streams
+	 */
+	max_framed_stream_t* max_framed_stream_setup(
+		max_engine_t 	*engine,
+		const char		*name,
+		void 			*buffer,
+		size_t			 buffer_size,
+		size_t 			 max_frame_size);
+
+
+	/**
+	* \brief Release the resources used by a framed stream.
+	*
+	 * @param framed_stream frame stream handler returned from max_framed_stream_setup()
+	 * \ingroup framed_streams
+	*/
+	void max_framed_stream_release(max_framed_stream_t *framed_stream);
+
+	/**
+	 * \brief Read frames.
+	 *
+	 * @param framed_stream frame stream handler returned from max_framed_stream_setup()
+	 * @param num_frames the function will read up to 'num_frames' from the framed stream
+	 * @param frames a pointer to an array of pointers. The function will populate
+	 *        the array with pointers to individual frames
+	 * @param frame_sizes a pointer to an array of sizes. The function will populate the
+	 *        array with the size of each pointer in 'frames'
+	 * @return number of frames read
+	 * \ingroup framed_streams
+	 */
+	size_t max_framed_stream_read(
+		max_framed_stream_t	 *framed_stream,
+		size_t				  num_frames,
+		void				**frames,
+		size_t 				 *frame_sizes);
+
+	/**
+	 * \brief Releases frames back to the ring buffer.
+	 *
+	 * @param framed_stream frame stream handler returned from max_framed_stream_setup()
+	 * @param num_frames the number of frames to release. Cannot be greater
+	 *        than what was returned by read
+	 * \ingroup framed_streams
+	 */
+	void max_framed_stream_discard(
+		max_framed_stream_t	*framed_stream,
+		size_t				 num_frames);
+
+	/**
+	 * \brief Acquires a set of buffers to be used for frame data
+	 *
+	 * @param framed_stream  stream handle returned from max_framed_stream_setup()
+	 * @param numFrames number of frame buffers needed (this is the number of frames you need to send)
+	 * @param frames an array of frame buffer pointers
+	 * @return the number of frame buffer pointers in the frames array
+	 * \ingroup framed_streams
+	 */
+	size_t max_framed_stream_write_acquire(
+			max_framed_stream_t *framed_stream,
+			size_t numFrames,
+			void **frames);
+
+
+	/**
+	 * \brief Sends a set of previously acquired frame buffers
+	 *
+	 * @param framed_stream  stream handle returned from max_framed_stream_setup()
+	 * @param numFrames number of frame buffers to commit
+	 * @param sizes an array of sizes in bytes of each frame to transmit. numFrames entries.
+	 * \ingroup framed_streams
+	 */
+	void max_framed_stream_write(
+			max_framed_stream_t *framed_stream,
+			size_t numFrames,
+			size_t *sizes);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_FRAMED_STREAMS_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to the topology
+ * \defgroup topology Topology
+ * \brief Topology
+ *
+ */
+
+#ifndef SLIC_TOPOLOGY_H_
+#define SLIC_TOPOLOGY_H_
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Check whether the daemon is alive.
+	 * \ingroup topology
+	 * \param maxfile the maxfile to use
+	 * \param socket_name the name of the socket used to communicate with the daemon
+	 * \return 1 = daemon is alive; 0 = daemon could not be connected.
+	 */
+	int max_ping_daemon(
+		max_file_t	*maxfile,
+		const char	*socket_name);
+
+	/**
+	 * \brief Return the number of devices available that are compatible with
+	 *        a specific maxfile.
+	 * \ingroup topology
+	 * \param maxfile the maxfile to use
+	 * \param engine_id_pattern location of the engines.  The format of this string is
+	 *        described in the @ref engine_naming section
+	 *
+	 */
+	size_t max_count_engines_present(
+		max_file_t	*maxfile,
+		const char	*engine_id_pattern);
+
+	/**
+	 * \brief Return the number of free devices that are compatible with
+	 *        a specific maxfile.
+	 * \ingroup topology
+	 * \param maxfile the maxfile to use
+	 * \param engine_id_pattern location of the engines.  The format of this string is
+	 *        described in the @ref engine_naming section
+	 *
+	 */
+	size_t max_count_engines_free(
+		max_file_t	*maxfile,
+		const char	*engine_id_pattern);
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* SLIC_TOPOLOGY_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Enum values related to error handling within SLiC.
+ *
+ */
+
+#ifndef SLIC_ERROR_LIST_H
+#define SLIC_ERROR_LIST_H
+
+/**
+ * This enum type contains all of the SLiC error codes.
+ */
+typedef enum slic_errno {
+	EMAX_NULL_MAXFILE                         =   89,    /**< The device handle's internal max_maxfile_t* pointer is NULL. */
+	EMAX_UNINITIALISED_CONSTANTS              =   90,    /**< Attempted to fetch a constant before constants were initialised. */
+	EMAX_NONEXISTENT_CONSTANT                 =   91,    /**< The requested constant does not exist. */
+	EMAX_NULL_BOARD                           =   92,    /**< The device handle's internal device pointer does not point to an open device. */
+	EMAX_APP_ID_READ_FAILURE                  =   93,    /**< Failed to read application id. */
+	EMAX_REV_ID_READ_FAILURE                  =   94,    /**< Failed to read revision id. */
+	// EMAX_CHAIN_LEN_READ_FAILURE               =   95,    /**< Failed to read chain length */
+	EMAX_WRONG_BITSTREAM                      =   96,    /**< The chip is configured with the wrong bitstream */
+	EMAX_CHECKSUM_READ_FAILURE                =   97,    /**< Failed to read the checksum */
+	EMAX_CLOSE_DEVICE                         =   98,    /**< Error closing device */
+	EMAX_OPEN_DEVICE                          =   99,    /**< Error opening device */
+	EMAX_INIT_IFPGA_LINK                      =  100,    /**< Failed to bring up IFPGA link */
+	EMAX_CONNECT_TO_DAEMON                    =  101,    /**< Failed to connect to MaxelerOS daemon */
+	EMAX_UNINITIALISED_REGS                   =  102,    /**< Attempted to use a mapped register before registers were initialised */
+	EMAX_MISSING_CHECKSUM                     =  103,    /**< The .max file does not contain a checksum */
+	EMAX_ID_READ_FAILURE                      =  104,    /**< Failed to read id */
+	EMAX_WRONG_CARD_ID                        =  105,    /**< Wrong card id */
+	EMAX_SETUP_SYSMON                         =  106,    /**< Failed to setup sysmon */
+	EMAX_DAEMON_DISCONNECT                    =  107,    /**< Error disconnecting from daemon */
+	EMAX_RUNTIME_PARAMS_UNUPLOADED            =  108,    /**< Attempted to reset device without first uploading runtime parameters */
+	EMAX_DEVICE_RESET                         =  109,    /**< Error resetting device */
+	EMAX_WAIT_FOR_INTERRUPT                   =  110,    /**< Error waiting for interrupt */
+	EMAX_SETTING_LEDS                         =  111,    /**< Error setting LEDs */
+	EMAX_UNINITIALISED_MEMS                   =  112,    /**< Attempted to use a mapped memory before memories were initialised */
+	EMAX_NONEXISTENT_MEMORY                   =  113,    /**< The requested mapped memory does not exist */
+	EMAX_MEMORY_WRITE                         =  114,    /**< Error writing to a mapped memory */
+	EMAX_REG_CACHE_OOM                        =  115,    /**< Failed to allocate memory for the mapped register cache */
+	EMAX_REGISTER_WRITE                       =  116,    /**< Error writing to a mapped register */
+	EMAX_NONEXISTENT_REGISTER                 =  117,    /**< The requested mapped register does not exist */
+	EMAX_INVALID_SIZE_REG                     =  118,    /**< The specified mapped register size is not supported for this operation */
+	EMAX_REG_VALUE_TOO_BIG                    =  119,    /**< The specified value is too large to be written to this register */
+	EMAX_REGISTER_READ                        =  120,    /**< Failed to read from mapped register */
+	EMAX_REG_READ_INVALID_CHIP                =  121,    /**< Reading from the specified chip is not currently supported */
+	EMAX_UNINITIALISED_MEMCTRL                =  122,    /**< Attempted to use memory controller before initialisation */
+	EMAX_NONEXISTENT_MEMCTRL_STREAM           =  123,    /**< The requested memory controller stream does not exist */
+	EMAX_INVALID_EXCEPTION_MASK               =  124,    /**< Invalid mask for numerical exceptions */
+	EMAX_NONEXISTENT_EXCEPTION                =  125,    /**< There are no numerical exceptions defined for the specified design */
+	EMAX_CLOSE_PCIE_STREAM                    =  126,    /**< Error closing PCIe stream */
+	EMAX_NONEXISTENT_PCIE_STREAM              =  127,    /**< The specified PCIe stream does not exist */
+	EMAX_INIT_PCIE_STREAM                     =  128,    /**< Error initialising PCIe stream */
+	EMAX_OPEN_PCIE_STREAM                     =  129,    /**< Error opening PCIe stream */
+	EMAX_QUEUE_PCIE_IO_REQUEST                =  130,    /**< Error queuing PCIe I/O request */
+	EMAX_SYNC_PCIE_STREAM                     =  131,    /**< Error synchronising PCIe stream */
+	EMAX_NONEXISTENT_PARAM                    =  132,    /**< The requested runtime parameter has not been set */
+	EMAX_TEMPERATURE_READ_FAILURE             =  133,    /**< Failed to read temperature of chip */
+	EMAX_TEMPERATURE_TOO_HIGH                 =  134,    /**< Chip is dangerously hot */
+	EMAX_CONVERT_UNSUPPORTED_TYPE             =  135,    /**< The requested type conversion is currently unsupported */
+	EMAX_MISSING_REQUIRED_CONSTANT            =  136,    /**< A required MaxFile constant is missing */
+	EMAX_DESTROY_REGISTER_CACHE               =  137,    /**< Error while destroying the mapped register cache */
+	EMAX_DESTROY_PCIE_STREAMS                 =  138,    /**< Error while destroying the PCIe streams */
+	EMAX_DESTROY_RUNTIME_PARAMS               =  139,    /**< Error while destroying the runtime parameters */
+	EMAX_REGISTER_CACHE_WRITE                 =  140,    /**< Error while writing cached mapped register values to the device */
+	EMAX_CONVERT_REGISTER_TYPE                =  141,    /**< Error while converting a register value from one type to another */
+	EMAX_DUMP_REGISTER_VALUES_READ            =  142,    /**< Error reading a mapped register while dumping register values */
+	EMAX_EXCEPTIONS_REGISTER_ADDR             =  143,    /**< Error getting the address of an exceptions register */
+	EMAX_UNINITIALISED_CAPABILITIES           =  154,    /**< Attempted to fetch a capability before capabilities were initialised */
+	EMAX_NONEXISTENT_CAPABILITY               =  155,    /**< The requested capability does not exist */
+	EMAX_MISSING_ADDRESS_PATTERN              =  156,    /**< No address pattern associated with group */
+	EMAX_MISSING_MEMCTRL                      =  157,    /**< Memory controller no present in hash table */
+	EMAX_MISSING_START_ADDRESS                =  158,    /**< No start address associated with stream */
+	EMAX_NONEXISTENT_MEMCTRL_GROUP            =  159,    /**< The requested memory controller stream does not exist */
+	EMAX_WRONG_ADDRESS_PATTERN                =  160,    /**< Attempt to set wrong address pattern */
+	EMAX_INVALID_SPACE_SIZE                   =  161,    /**< Space size arguments out of range */
+	EMAX_INVALID_BLOCK_SIZE                   =  162,    /**< Block size arguments out of range */
+	EMAX_INVALID_START_POINT                  =  163,    /**< Start point arguments out of range */
+	EMAX_NOT_DUAL_MODE                        =  164,    /**< Tried to get paired device of a device not opened in dual-mode */
+	EMAX_GET_CHIP_ID                          =  166,    /**< Failed to get Chip ID */
+	EMAX_MAXELEROS_VERSION                    =  167,    /**< Mismatched MaxelerOS version between compile/linking of MaxLib */
+	EMAX_WRONG_MEMORY_TYPE                    =  168,    /**< Duplicated mapped memory doesn't map to real mapped memory */
+	EMAX_DEPRECATED                           =  169,    /**< Attempt to call unsupported function (or mode) */
+	EMAX_UNINITIALISED_KERNELS                =  170,    /**< Attempt to use kernels hash table before initialisation */
+	EMAX_NONEXISTANT_KERNEL                   =  171,    /**< The requested kernel does not exist */
+	EMAX_INIT_MEMCTRL                         =  172,    /**< Failed to bring up memory controller */
+	EMAX_DEVCNT_FAIL                          =  173,    /**< Failed to get number of devices on the system */
+	EMAX_DEVLST_FAIL                          =  174,    /**< Failed to enumerate devices on the system */
+	EMAX_INVALID_DEVICE                       =  175,    /**< Invalid device name */
+	EMAX_NOT_PAIRED                           =  176,    /**< Tried to open paired devices that are not paired */
+	EMAX_DAEMON_COMM                          =  177,    /**< Communication or protocol failure */
+	EMAX_NONEXISTENT_BITFIELD                 =  203,    /**< The requested bit field does not exist in a given mapped register */
+	EMAX_INVALID_SIZE_BITFIELD                =  215,    /**< The specified bit field size is not supported for this operation and this register */
+	EMAX_BOUND_ERROR                          =  237,    /**< Out of bounds mapped memory access */
+	EMAX_FREQUENCY_RESCALE_FAIL               =  258,    /**< Failed to rescale to the requested frequency */
+	EMAX_CHAIN_LENGTH_INVALID                 =  260,    /**< Invalid chain length */
+	EMAX_MEMORY_READ                          =  261,    /**< Failed to read mapped memory */
+	// EMAX_INVALID_MEC_CONTROL_STREAM           =  272,
+	EMAX_MEC_NOT_SUPPORTED                    =  273,    /**< MEC not supported */
+	EMAX_TIMING_SCORE_TOO_LARGE               =  279,    /**< A maxfile's timing score is larger than the user-specified maximum acceptable score */
+	EMAX_ALIGNMENT_ERROR                      =  280,
+	EMAX_FRAME_ERROR                          =  281,
+	EMAX_MEC_CONTROL_STREAM_ERROR             =  298,    /**< MEC control stream error */
+	EMAX_SETUP_PCIE_STREAM_RINGBUFFER         =  299,    /**< Failed to setup Ring Buffer */
+	EMAX_RELEASE_PCIE_STREAM_RINGBUFFER       =  300,    /**< Failed to release Ring Buffer */
+	EMAX_NETWORK_MAC_READ_FAILED              =  304,    /**< Failed to read MAC address from network */
+	EMAX_NETWORK_MAC_WRITE_FAILED             =  305,    /**< Failed to write MAC address to network */
+	EMAX_NETWORK_STAT_READ_FAILED             =  306,    /**< Failed to read statistic from network */
+	EMAX_ARP_OPEN_FAILED                      =  309,    /**< Failed to set up ARP */
+	EMAX_ARP_CLOSE_FAILED                     =  310,    /**< Failed to set up ARP */
+	EMAX_ARP_QUERY_FAILED                     =  311,    /**< Failed to set up ARP */
+	EMAX_PADDER_FAILED                        =  312,    /**< Failed to set up Networking */
+	EMAX_PADDER_TIMEOUT                       =  313,    /**< Failed to set up Networking */
+	EMAX_TOPOLOGY_CHECK_FAILED                =  315,    /**< Failed to verify the expected topology has come up */
+	EMAX_WRONG_REGISTER_TYPE                  =  316,
+	EMAX_SET_PCIE_STREAM_TIMEOUT              =  426,    /**< Failed to set timeout of PCIe streams. */
+	EMAX_SET_DMA_BUFFERING_FAILED             =  439,    /**< Failed to enable persistent DMA buffering. */
+	EMAX_STOP_PCIE_STREAM                     =  442,    /**< Failed to stop a PCIe stream. */
+	EMAX_CONFIGURE_KERNEL_PROFILER            =  444,
+	EMAX_READ_KERNEL_PROFILER                 =  445,
+	EMAX_TCP_SETUP_FAILED                     =  446,    /**< Failed to setup TCP. */
+	EMAX_SET_INTERRUPT_TIMEOUT                =  453,    /**< Failed to set memory interrupt timeout */
+	EMAX_SET_SHUTDOWN_ON_EXIT                 =  456,    /**< Failed to enable manager shutdown on exit */
+	EMAX_CONFIGURE_HARDWARE_WATCH             =  489,
+	EMAX_RELEASE_QUANTUM                      =  490,    /**< Failed to release quantum */
+	EMAX_RELEASE_POOL                         =  491,    /**< Failed to release pool */
+	EMAX_UNSUPPORTED_MAXFILE                  =  492,
+	EMAX_POOL_ALLOC                           =  493,
+	EMAX_CREATE_POOL                          =  495,
+	EMAX_ALLOCATE_QUANTA                      =  496,
+	EMAX_INVALID_FLAGS                        =  501,    /**< Invalid combination of flags */
+	EMAX_TOPOLOGY_REQUEST_FAILED              =  506,    /**< Failed to perform topology request. */
+	EMAX_CONFIG                               =  507,    /**< Configuration error. */
+	EMAX_KERNEL_PROFILER_CONFIGURATION_FAILED =  508,
+	EMAX_KERNEL_PROFILER_READ_FAILED          =  509,
+	EMAX_ALLOCATE_TOKEN                       =  510,    /**< Failed to allocate token ID. */
+	EMAX_MAXFILE_SETUP                        =  512,    /**< Error during maxfile initialisation. */
+	EMAX_SESSION_INIT                         =  513,    /**< Error during the initialisation of an actions object. */
+	EMAX_KERNEL_SETUP                         =  514,    /**< Error during the configuration of a kernel. */
+	EMAX_MAPPED_ELEMENT                       =  515,    /**< Error manipulating a mapped element. */
+	EMAX_INVALID_OBJECT                       =  516,    /**< Invalid object. */
+	EMAX_MODE_SETUP                           =  517,    /**< Error in use of Modes in actions. */
+	EMAX_REPORTED_ERROR                       =  518,    /**< Error reported from facade layer. */
+	EMAX_ACTION_COMMIT_FAILED                 =  523,    /**< Error when committing actions. */
+	EMAX_RAW_SESSION_ACTION_FAILED            =  524,    /**< Error when modifying raw-session data. */
+	EMAX_ACTION_VALIDATION_FAILED             =  525,    /**< Error when validating actions. */
+	EMAX_MEM_ALLOC_FAILED                     =  526,    /**< Error when allocating memory. */
+	EMAX_INTERNAL_ERROR                       =  528,    /**< Internal error */
+	EMAX_EXECUTE_ERROR                        =  529,    /**< Error while executing actions */
+	EMAX_UNSUPPORTED                          =  530,    /**< Unsupported operation */
+	EMAX_NOT_BURST_ALIGNED                    =  531,    /**< Value is not burst-aligned. */
+	EMAX_INVALID_STRIDE                       =  532,    /**< Stride value is out of range. */
+	EMAX_INVALID_RW_MODE                      =  533,    /**< Error in operation for current RW mode. */
+	EMAX_INVALID_INDEX                        =  534,    /**< Index out of range. */
+	EMAX_ROUTING_FAILED                       =  536,    /**< Routing action failed. */
+
+	EMAX_CONFIG_UDP_ARP_FAILED                = 537,     /* Failed to configure ARP for UDP */
+	EMAX_INVALID_ARG                          = 538,     /* Invalid function argument */
+	EMAX_THREAD_FAIL_INIT                     = 539,
+	EMAX_THREAD_FAIL_CREATE                   = 540,
+	EMAX_THREAD_FAIL_JOIN                     = 541,
+	EMAX_THREAD_FAIL_LOCK                     = 542,
+	EMAX_THREAD_FAIL_WAIT                     = 543,
+	EMAX_FORMAT_ADDRESS_FAIL                  = 544,
+	EMAX_ARP_UPDATE_FAILED                    = 545,     /* Failed to update ARP table. */
+
+	EMAX_LLSTREAM_MARKER_UPDATE_FAILED        = 546,     /** Failed to update low latency stream marker. */
+	EMAX_LLSTREAM_READ_FAILED                 = 550,     /** Failed to read low-latency stream. */
+	EMAX_LLSTREAM_WRITE_FAILED                = 551,     /** Failed to write low-latency stream. */
+
+	EMAX_NETWORK_SETUP_FAILED                 = 553,     /**< Error setting up the network */
+	EMAX_UDP_SETUP_FAILED                     = 554,     /**< Error setting up UDP */
+	EMAX_THREAD_FAIL_SIGNAL                   = 555,
+	EMAX_FRAME_STREAM_INIT_FAIL               = 562,     /* frame stream init call failed */
+	EMAX_FRAME_STREAM_DISCARD_FAIL            = 563,     /* frame stream discard call failed */
+	EMAX_FRAME_STREAM_READ_FAIL               = 564,     /* frame stream read call failed */
+	EMAX_IGMP_SETUP_FAILED                    = 567,     /**< Failed to setup IGMP client */
+	EMAX_ARP_SETUP_FAILED                     = 568,     /**< Failed to setup ARP client */
+	EMAX_TIMESTAMP_FAILED                     = 569,     /** Failed setting up time stamping */
+
+	EMAX_NONEXISTENT_BLOCK                    = 571,     /**< Non-existent block */
+	EMAX_IP_ROUTING_SETUP_FAILED              = 573,     /**< Failed to setup IP routing */
+	EMAX_HANDLE_MISMATCH                      = 579,     /**< Supplied handle does not match required handle for this operation. */
+	EMAX_FRAME_STREAM_WRITE_FAIL              = 606,     /** frame stream write call failed */
+	EMAX_ICMP_ERROR                           = 609,
+	EMAX_ICMP_SETUP_FAILED                    = 610,
+	EMAX_THREAD_FAIL_CANCEL                   = 605,     /**< Failed to cancel a thread. */
+	EMAX_HWPRINTF_ERROR                       = 611,     /**< Error in HWPrintf module */
+	EMAX_LICENSING_ERROR                      = 614,     /**< Error in licensing. */
+	EMAX_REGISTRATION_ERROR                  =  616,    /**< Error registering/deregistering a stream */
+	EMAX_MAXDEBUG_ERROR                      =  618,    /**< MaxDebug error */
+	EMAX_TOPOLOGY_REQUEST_TIMEOUT            =  620,    /**< Timeout in topology request. */
+} slic_errno_t;
+
+#endif /* SLIC_ERROR_LIST_H */
+
+
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to the management of the maxfile.
+ *
+ */
+
+#ifndef SLIC_MAXFILE_H_
+#define SLIC_MAXFILE_H_
+
+#include "slic_typedefs.h"
+
+#include <time.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Deallocate a MaxFile
+	 * \ingroup maxfile
+	 *
+	 */
+	void max_file_free(
+		max_file_t *max_file);
+
+	/**
+	 * \brief Get the name of the entity in a handle.
+	 * \param handle the handle whose name to retrieve.
+	 *
+	 * If the handle contains a stream, the stream name is returned,
+	 * if it contains a scalar parameter, the name of the scalar is returned,
+	 * and if it contains a mapped memory, the name of the mapped memory is returned.
+	 *
+	 * \ingroup maxfile
+	 */
+	const char* max_get_handle_name(
+		const max_handle_t *handle);
+
+	/**
+	 * \brief Get an integer constant from a MaxFile
+	 * \param maxfile 	the maxfile to interrogate
+	 * \param name 		constant name
+	 * \returns value of named constant
+	 * \ingroup maxfile
+	 *
+	 * Get the value of a named integer constant embedded in the MaxFile.
+	 * The error status of the maxfile should be checked before the returned value is used.
+	 */
+	uint64_t max_get_constant_uint64t(
+		max_file_t *maxfile,
+		const char *name);
+
+	/**
+	 * \brief Get a floating-point constant from a MaxFile
+	 * \param maxfile 	the maxfile to interrogate
+	 * \param name 		constant name
+	 * \returns value of named constant
+	 * \ingroup maxfile
+	 *
+	 * Get the value of a named floating-point constant embedded in the MaxFile.
+	 * The error status of the maxfile should be checked before the returned value is used.
+	 */
+	double max_get_constant_double(
+		max_file_t *maxfile,
+		const char *name);
+
+	/**
+	 * \brief Get a string constant from a MaxFile
+	 * \param maxfile 	the maxfile to interrogate
+	 * \param name 		constant name
+	 * \returns value of named constant
+	 * \ingroup maxfile
+	 *
+	 * Get the value of a named string constant embedded in the MaxFile.
+	 * The error status of the maxfile should be checked before the returned value is used.
+	 */
+	const char * max_get_constant_string(
+		max_file_t *maxfile,
+		const char *name);
+
+	/**
+	 * \brief Set the maximum time to wait when trying to load a maxfile
+	 * on to an engine, array of engines, or group of engines.
+	 *
+	 * The default is that there is no time-out, so that the program may
+	 * wait indefinitely to obtain an engine.
+	 * To use a different timeout, call this function \a before calling
+	 * ::max_load, ::max_load_array, or ::max_load_group.
+	 *
+	 * \param  maxfile the maxfile to be modified.
+	 * \param  timeout the timeout in seconds; use -1 to wait indefinitely.
+	 * \return the previous timeout, which is overwritten by this call.
+	 * \ingroup maxfile
+	 */
+	time_t max_load_timeout(
+		max_file_t   *maxfile,
+		const time_t  timeout);
+
+	/**
+	 * \brief Set the maximum runnable timing score for a maxfile.
+	 *
+	 * By default, it is an error to try to allocate engines, groups or
+	 * arrays of engines for maxfiles that have a timing score higher
+	 * than zero.
+	 *
+	 * Calling this function before ::max_load, ::max_load_array,
+	 * or ::max_load_group makes it possible to load resources
+	 * for such a maxfile.
+	 *
+	 * \warning We strongly recommend that you do not use such maxfiles.
+	 *
+	 * \param  maxfile the maxfile to be modified.
+	 * \param  score maximum runnable timing score.
+	 * \ingroup maxfile
+	 */
+	void max_set_max_runnable_timing_score(
+		max_file_t   *maxfile,
+		int           score);
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* SLIC_MAXFILE_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to configuration.
+ *
+ */
+
+#ifndef SLIC_MAXELER_CONFIGURATION_H_
+#define SLIC_MAXELER_CONFIGURATION_H_
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "slic_typedefs.h"
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Set the value of an integer configuration parameter
+	 * \ingroup configuration
+	 * \param key key corresponding to the parameter to set
+	 * \param value
+	 */
+	void max_config_set_int64(
+		max_config_key_int64_t	key,
+		int64_t							value);
+
+	/**
+	 * \brief Retrieve the value of an integer configuration parameter
+	 * \param key key corresponding to the parameter to retrieve
+	 * \ingroup configuration
+	 */
+	int64_t max_config_get_int64(
+		max_config_key_int64_t	key);
+
+	/**
+	 * \brief Set the value of a string configuration parameter
+	 * \param key key corresponding to the parameter to set
+	 * \param value
+	 * \ingroup configuration
+	 */
+	void max_config_set_string(
+		max_config_key_string_t	 key,
+		const char 						*value);
+
+	/**
+	 * \brief Retrieve the value of a string configuration parameter
+	 * \param key key corresponding to the parameter to retrieve
+	 * \ingroup configuration
+	 */
+	const char* max_config_get_string(
+		max_config_key_string_t	 key);
+
+	/**
+	 * \brief Set the value of an boolean configuration parameter
+	 * \param key key corresponding to the parameter to set
+	 * \param value zero for false, non-zero for true
+	 * \ingroup configuration
+	 */
+	void max_config_set_bool(
+		max_config_key_bool_t	 key,
+		int								 value);
+
+	/**
+	 * \brief Retrieve the value of a boolean configuration parameter
+	 * \param key key corresponding to the parameter to retrieve
+	 * \return zero for false, non-zero for true
+	 * \ingroup configuration
+	 */
+	int max_config_get_bool(
+		max_config_key_bool_t	 key);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_MAXELER_CONFIGURATION_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to the management of arrays of engines.
+ *
+ */
+
+#ifndef SLIC_ENGARRAY_H_
+#define SLIC_ENGARRAY_H_
+
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Allocate an array of connected, locked engines.
+	 * \ingroup engarray
+	 * \param maxfile the max_file_t structure indicating the capabilities required
+	 * \param number_of_engines the number of engines required
+	 * \param engine_id_pattern location of the engines.  The format of this string is
+	 *        described in \ref engine_naming
+	 * \return an array of engines
+	 *
+	 * For an array of MAX3 engines with MaxRing, the inter-engine connections
+	 * are ordered as follows:
+	 * - the first engine is connected to the second engine, if any, by way of \a MAXRING_A;
+	 * - the second engine is connected to the third engine, if any, by way of \a MAXRING_B;
+	 * - the third engine is connected to the fourth engine, if any, by way of \a MAXRING_A,
+	 *   and so on.
+	 *
+	 * For an array of MAX2 engines with MaxRing, the inter-engine connections
+	 * are ordered as follows:
+	 * - the first engine is connected to the second engine, if any, by way of \a FPGA_ON_LOCAL_CARD;
+	 * - the second engine is connected to the third engine, if any, by way of \a FPGA_ON_REMOTE_CARD;
+	 * - the third engine is connected to the fourth engine, if any, by way of \a FPGA_ON_LOCAL_CARD,
+	 *   and so on.
+	 *
+	 * An array of MAX2 engines with IFPGA is limited to two engines only.
+	 *
+	 * \internal
+	 * Assuming that the first engine has the index \a 0: if \a N is even (i.e. \a N % 2 = 0),
+	 * the engine of index \a N is connected to the engine of index \a N-1 by way of \a MAXRING_B,
+	 * and connected to the engine of index \a N+1 by way of \a MAXRING_A.
+	 *
+	 */
+	max_engarray_t* max_load_array(
+		max_file_t 	*maxfile,
+		int			 number_of_engines,
+		const char 	*engine_id_pattern);
+
+	max_engarray_t* max_load_mixed_array(
+		max_file_t **maxfiles,
+		int			 number_of_engines,
+		const char 	*engine_id_pattern);
+
+	/**
+	 * \brief Deallocate an array.
+	 * \param engarray the array to deallocate
+	 * \ingroup engarray
+	 *
+	 * An array should only be unloaded after all its non-blocking runs are
+	 * finished.
+	 */
+	void max_unload_array(
+		max_engarray_t *engarray);
+
+	/**
+	 * \brief Run an array of actions on an array of engines.
+	 * \param engarray an array of engines
+	 * \param actarray an array of actions
+	 * \ingroup engarray
+	 */
+	void max_run_array(
+		max_engarray_t 	*engarray,
+		max_actarray_t	*actarray);
+
+
+	/**
+	 * \brief Run an array of actions on an array of engines in non blocking mode
+	 * \param engarray an array of engines
+	 * \param actarray an array of actions
+	 * \return a handle on the execution status of the actions
+	 * \ingroup engarray
+	 *
+	 * Schedule the actions to run on the engines and return immediately.
+	 * The status of the run can be checked by way of ::max_wait or ::max_nowait.
+	 */
+	max_run_t* max_run_array_nonblock(
+		max_engarray_t	*engarray,
+		max_actarray_t	*actarray);
+
+
+	/**
+	 * \brief Run multiple arrays of actions on an array of engines.
+	 * \param engarray an array of engines
+	 * \param arr_actarray an array of actarrays
+	 * \param nb_actarray the size of arr_actarray
+	 * \ingroup engarray
+	 */
+	void max_run_array_multi(
+		max_engarray_t  *engarray,
+		max_actarray_t **arr_actarray,
+		int              nb_actarray);
+
+	/**
+	 * \brief Run multiple arrays of actions on an array of engines.
+	 * \param engarray an array of engines
+	 * \param arr_actarray an array of actarrays
+	 * \param nb_actarray the size of arr_actarray
+	 * \return a handle on the execution status of the actions
+	 * \ingroup engarray
+	 *
+	 * Schedule the actions to run on the engines and return immediately.
+	 * The status of the run can be checked by way of ::max_wait or ::max_nowait.
+	 */
+	max_run_t *max_run_array_multi_nonblock(
+		max_engarray_t  *engarray,
+		max_actarray_t **arr_actarray,
+		int              nb_actarray);
+
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_ENGARRAY_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to mapped memories.
+ *
+ */
+
+#ifndef SLIC_MEM_H_
+#define SLIC_MEM_H_
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Set a mapped memory
+	 * \param actions the actions to modify
+	 * \param block_name the name of the block the mapped memory belongs to
+	 * \param mem_name the name of the mapped memory
+	 * \param index the index of the data to set in the mapped memory
+	 * \param v the value to set
+	 * \ingroup mapped_memories
+	 */
+	void max_set_mem_uint64t(
+		max_actions_t	*actions,
+		const char		*block_name,
+		const char		*mem_name,
+		size_t			 index,
+		uint64_t		 v);
+
+	/**
+	 * \brief Set a mapped memory range
+	 * \param actions the actions to modify
+	 * \param block_name the name of the block the mapped memory belongs to
+	 * \param mem_name the name of the mapped memory
+	 * \param index_start the index of the first element to set in the mapped memory
+	 * \param nb_elements number of elements to set
+	 * \param values the values to set, an array of size nb_elements
+	 * \ingroup mapped_memories
+	 */
+	void max_set_mem_range_uint64t(
+		max_actions_t	*actions,
+		const char		*block_name,
+		const char		*mem_name,
+		size_t			 index_start,
+		size_t			 nb_elements,
+		const uint64_t	*values);
+
+
+	/**
+	 * \brief Set a mapped memory
+	 * \param actions the actions to modify
+	 * \param block_name the name of the block the mapped memory belongs to
+	 * \param mem_name the name of the mapped memory
+	 * \param index the index of the data to set in the mapped memory
+	 * \param v the value to set
+	 * \ingroup mapped_memories
+	 */
+	void max_set_mem_double(
+		max_actions_t	*actions,
+		const char		*block_name,
+		const char		*mem_name,
+		size_t			 index,
+		double			 v);
+
+	/**
+	 * \brief Set a mapped memory range
+	 * \param actions the actions to modify
+	 * \param block_name the name of the block the mapped memory belongs to
+	 * \param mem_name the name of the mapped memory
+	 * \param index_start the index of the first element to set in the mapped memory
+	 * \param nb_elements number of elements to set
+	 * \param values the values to set, an array of size nb_elements
+	 * \ingroup mapped_memories
+	 */
+	void max_set_mem_range_double(
+		max_actions_t	*actions,
+		const char		*block_name,
+		const char		*mem_name,
+		size_t			 index_start,
+		size_t			 nb_elements,
+		const double	*values);
+
+	/**
+	 * \brief Prepare a mapped memory readback
+	 * \param actions the actions to modify
+	 * \param block_name the name of the block the mapped memory belongs to
+	 * \param mem_name the name of the mapped memory
+	 * \param index the index of the data to read back
+	 * \param v address where the data will be stored after the action has run
+	 * \ingroup mapped_memories
+	 */
+	void max_get_mem_uint64t(
+		max_actions_t	*actions,
+		const char 		*block_name,
+		const char		*mem_name,
+		size_t			 index,
+		uint64_t		*v);
+
+	/**
+	 * \brief Prepare a mapped memory readback for a range of elements
+	 * \param actions the actions to modify
+	 * \param block_name the name of the block the mapped memory belongs to
+	 * \param mem_name the name of the mapped memory
+	 * \param index_start the index of the first element to read back
+	 * \param nb_elements the number of elements to read back
+	 * \param values array of nb_elements where the data will be stored upon completion of the action
+	 * \ingroup mapped_memories
+	 */
+	void max_get_mem_range_uint64t(
+		max_actions_t	*actions,
+		const char 		*block_name,
+		const char		*mem_name,
+		size_t			 index_start,
+		size_t			 nb_elements,
+		uint64_t		*values);
+
+	/**
+	 * \brief Prepare a mapped memory readback
+	 * \param actions the actions to modify
+	 * \param block_name the name of the block the mapped memory belongs to
+	 * \param mem_name the name of the mapped memory
+	 * \param index the index of the data to read back
+	 * \param v address where the data will be stored after the action has run
+	 * \ingroup mapped_memories
+	 */
+	void max_get_mem_double(
+		max_actions_t	*actions,
+		const char 		*block_name,
+		const char		*mem_name,
+		size_t			 index,
+		double			*v);
+
+	/**
+	 * \brief Prepare a mapped memory readback for a range of elements
+	 * \param actions the actions to modify
+	 * \param block_name the name of the block the mapped memory belongs to
+	 * \param mem_name the name of the mapped memory
+	 * \param index_start the index of the first element to read back
+	 * \param nb_elements the number of elements to read back
+	 * \param values array of nb_elements where the data will be stored upon completion of the action
+	 * \ingroup mapped_memories
+	 */
+	void max_get_mem_range_double(
+		max_actions_t	*actions,
+		const char 		*block_name,
+		const char		*mem_name,
+		size_t			 index_start,
+		size_t			 nb_elements,
+		double			*values);
+
+	/**
+	 * \brief Mark a mapped memory as valid regardless of its configuration
+	 * \ingroup validation
+	 */
+	void max_ignore_mem(
+		max_actions_t 	*actions,
+		const char 		*block_name,
+		const char 		*mem_name);
+
+	/**
+	 * \brief Mark a mapped memory as valid regardless of its configuration
+	 * \ingroup validation
+	 */
+	void max_ignore_mem_input(
+		max_actions_t 	*actions,
+		const char 		*block_name,
+		const char 		*mem_name);
+
+	/**
+	 * \brief Mark a mapped memory as valid regardless of its configuration
+	 * \ingroup validation
+	 */
+	void max_ignore_mem_output(
+		max_actions_t 	*actions,
+		const char 		*block_name,
+		const char 		*mem_name);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* SLIC_MEM_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ *
+ * \file
+ * \brief <b>Main header file: this should be included in all user code; \n
+ *           it includes all the other header files in the SLiC Interface.\n
+ *        </b>
+ *
+ */
+#ifndef MAX_SLIC_DYNAMIC_H
+#define MAX_SLIC_DYNAMIC_H
+
+#include <stdio.h>
+
+/*
+ * The following header files declare functions related to engine management.
+ * The engines can be used singly, as arrays of linked engines, or as groups
+ * of separate engines.  Groups of engines may be locked exclusively, or
+ * shared with other threads and processes.
+ */
+#include "slic_engine.h"
+#include "slic_engarray.h"
+#include "slic_group.h"
+#include "slic_run.h"
+
+
+#include "slic_maxfile.h"
+#include "slic_actions.h"
+#include "slic_actarray.h"
+#include "slic_configuration.h"
+
+#include "slic_scalar.h"
+#include "slic_mem.h"
+#include "slic_stream.h"
+#include "slic_typedefs.h"
+#include "slic_error.h"
+#include "slic_error_list.h"
+#include "slic_compiler.h"
+
+#include "slic_event_monitoring.h"
+#include "slic_topology.h"
+
+#include "slic_framed_streams.h"
+#include "slic_llstream.h"
+#include "slic_network.h"
+#include "slic_tcp.h"
+#include "slic_udp.h"
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef DESIGN_NAME
+
+#define _CONCAT(a, b) a ## b
+#define CONCAT(a, b) _CONCAT(a, b)
+#define INIT_NAME CONCAT(DESIGN_NAME, _init)
+
+    max_file_t* INIT_NAME(void);
+
+#undef CONCAT
+#undef _CONCAT
+#undef INIT_NAME
+
+#endif /* DESIGN_NAME */
+
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* MAX_SLIC_DYNAMIC_H */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to error handling.
+ *
+ */
+
+
+#ifndef SLIC_ERROR_H_
+#define SLIC_ERROR_H_
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Check whether any errors have been raised.
+	 * \param errors the error context to be checked.
+	 * \return 1 = no errors; 0 = errors.
+	 * \ingroup errors
+	 */
+	int max_ok(
+		max_errors_t *errors);
+
+
+	/**
+	 * \brief Check whether a specific error has been raised.
+	 * \param errors the error context to be checked.
+	 * \param error_code the specific error code to check for
+	 *        within the error context.
+	 * \return 1 = error has been raised; 0 = error has not been raised.
+	 * \ingroup errors
+	 */
+	int max_errors_check(
+		max_errors_t * errors,
+		int            error_code);
+
+
+	/**
+	 * \brief Get a copy of the errors trace.
+	 *
+	 * Note that memory is allocated internally into which
+	 * the trace is written; it is the caller's responsibility
+	 * to free this memory.
+	 *
+	 * \param errors the error context to be checked.
+	 * \return a pointer to the errors trace, or NULL if
+	 *         no errors are present within the context.
+	 * \ingroup errors
+	 */
+	char* max_errors_trace(
+		max_errors_t * errors);
+
+
+	/**
+	 * \brief Clear any errors.
+	 * \param errors the error context to be cleared.
+	 * \ingroup errors
+	 */
+	void max_errors_clear(
+		max_errors_t * errors);
+
+
+	/**
+	 * \brief Set the errors operation mode.
+	 *
+	 *  The default, if this function is not called, is to
+	 *  abort on error.  Note that if aborting on error is
+	 *  suppressed, then further calls to the SLiC interface
+	 *  will be "No Op" calls, until the error stack has
+	 *  been cleared, e.g. with ::max_errors_clear.
+	 *
+	 * \param errors the error context to be set.
+	 * \param abort_on_error whether to abort when errors are
+	 *        present: 1 = abort, 0 = do not abort.
+	 * \ingroup errors
+	 */
+	void max_errors_mode(
+		max_errors_t * errors,
+		int            abort_on_error);
+
+
+	/*----------------------------------------------------------------------------*/
+	/*----- The following are internal and not intended for use by end-users -----*/
+	/*----------------------------------------------------------------------------*/
+
+	/**
+	 * \internal
+	 * \brief Raise an error.
+	 * This is needed by MaxFileInit.c but is not intended for users' code.
+	 * \ingroup errors
+	 */
+	void max_report_error_slic(
+		max_errors_t * errors,
+		const char   * filename,
+		const int      linenum,
+		const int      errorcode,
+		const char   * message);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_ERROR_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions to await or ignore the completion of a set of actions.
+ *
+ */
+
+#ifndef SLIC_RUN_H_
+#define SLIC_RUN_H_
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Wait for an operation launched by way of ::max_run_nonblock call to complete
+	 * \ingroup nonblocking
+	 */
+	void max_wait(
+		max_run_t *run);
+
+	/**
+	 * \brief Signal that the outcome of an operation launched by way of ::max_run_nonblock is to
+	 * be ignored.
+	 * \ingroup nonblocking
+	 */
+	void max_nowait(
+		max_run_t *run);
+
+	/**
+	 * \brief This is a no-op call, and can be used to mark, say,
+	 * the start of an iteration in instrumentation output.
+	 */
+	void max_mark_iteration(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* SLIC_RUN_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+#ifndef SLIC_EVENT_MONITORING_H_
+#define SLIC_EVENT_MONITORING_H_
+
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Open a channel an event logging server
+	 * \ingroup event_logging
+	 * \param log_server name of the log server (which must have been started with 'maxeventlog --name <name>'
+	 * \param name name of the current process.  This name can be used as a format in the same way as sprintf(3).
+	 *
+	 * The software producing a graphical rendering of the events associated with a process expects processes to
+	 * be named "group name/process name" if they are meant to be displayed as part of the process group named "group name".
+	 */
+	__attribute__((format (printf, 2, 3)))
+	void max_eventlog_enable(
+		const char	*log_server,
+		const char	*name,
+		...);
+
+	/**
+	 * \brief Treat a thread as a separate process in terms of event logging
+	 * \param name name of the thread, following the same format as the corresponding argument
+	 *        of ::max_eventlog_enable
+	 * \ingroup event_logging
+	 */
+	__attribute__((format (printf, 1, 2)))
+	void max_eventlog_set_thread_name(
+		const char *name,
+		...);
+
+	/**
+	 * \brief Create an atomic (i.e. discrete) event
+	 * \param name name of the event
+	 * \ingroup event_logging
+	 *
+	 * Such an event can later be raised by way of ::max_event_fire
+	 */
+	__attribute__((format (printf, 1, 2)))
+	max_event_atomic_t max_event_make_atomic(
+		const char			*name,
+		...);
+
+	/**
+	 * \brief Log an atomic event
+	 * \param event an event created by way of ::max_event_make_atomic
+	 * \ingroup event_logging
+	 *
+	 */
+	void max_event_fire(
+		max_event_atomic_t event);
+
+	/**
+	 * \brief Create a start-stop event (an event with a duration)
+	 * \param name name of the event
+	 * \ingroup event_logging
+	 *
+	 * Such an event can later be used by ::max_event_start and ::max_event_stop
+	 */
+	__attribute__((format (printf, 1, 2)))
+	max_event_startstop_t max_event_make_startstop(
+		const char			*name,
+		...);
+
+	/**
+	 * \brief Indicate the beginning of an event
+	 * \param event an event created by way of ::max_event_make_startstop
+	 * \ingroup event_logging
+	 *
+	 */
+	void max_event_start(
+		max_event_startstop_t event);
+	/**
+	 * \brief Indicate the end of an event
+	 * \param event an event created by way of ::max_event_make_startstop
+	 * \ingroup event_logging
+	 *
+	 */
+	void max_event_stop(
+		max_event_startstop_t event);
+
+	/**
+	 * \brief Disable event logging for the remainder of the duration of the software.
+	 * \ingroup event_logging
+	 *
+	 */
+	void max_eventlog_disable(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_EVENT_MONITORING_H_ */
+/*********************************************************************
+ * SLiC Interface                                                    *
+ * Copyright (C) 2015 Maxeler Technologies                           *
+ *                                                                   *
+ * Version: 2014.2                                                   *
+ * Date:    2015-01-23                                               *
+ *                                                                   *
+ *********************************************************************/
+
+/**
+ * \file
+ * \brief Functions related to low latency streams
+ *
+ */
+#ifndef SLIC_LLSTREAM_H_
+#define SLIC_LLSTREAM_H_
+
+#include <sys/types.h>
+#include "slic_typedefs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+	/**
+	 * \brief Setup a low latency stream on an engine.
+	 *
+	 *  The max_llstream_setup function returns a pointer of type max_llstream_t, which points
+	 *  to a data structure used internally by the API to track certain information about the
+	 *  state of the stream.
+	 *
+	 * \param engine the engine to use
+	 * \param stream_name name of the stream
+	 * \param num_slots size of the buffer in units of slot_size bytes.  It may be at most 512.
+	 * \param slot_size size in bytes of each unit of date to be read or written atomically.
+	 *        Must be a multiple of 16, ranging from 16 to 4096
+	 * \param buffer area of memory aligned on a 16 byte boundary and previously allocated by the
+	 *        application.  Its size must suffice to store num_slots units of data, each of slot_size
+	 *        bytes.  This area is used for temporary storage of data in transit.
+	 *
+	 * \ingroup llstreams
+	 */
+	max_llstream_t *max_llstream_setup(
+		max_engine_t 		*engine,
+		const char			*stream_name,
+		size_t				 num_slots,
+		size_t				 slot_size,
+		void 				*buffer
+	);
+
+	/**
+	 * \brief Setup a low latency stream on an engine within an array.
+	 *
+	 * The ::max_llstream_setup_array function is the counterpart of ::max_llstream_setup
+	 * for arrays of engines, making it possible to obtain a low-latency stream for a
+	 * particular engine within an array.
+	 *
+	 * \param array the array to use
+	 * \param engine_index the index of the engine to use within the array.
+	 * \param stream_name name of the stream
+	 * \param num_slots size of the buffer in units of slot_size bytes.  It may be at most 512.
+	 * \param slot_size size in bytes of each unit of date to be read or written atomically.
+	 *        Must be a multiple of 16, ranging from 16 to 4096
+	 * \param buffer area of memory aligned on a 16 byte boundary and previously allocated by the
+	 *        application.  Its size must suffice to store num_slots units of data, each of slot_size
+	 *        bytes.  This area is used for temporary storage of data in transit.
+	 *
+	 * \ingroup llstreams
+	 */
+	max_llstream_t *max_llstream_setup_array(
+		max_engarray_t 	*array,
+		int				 engine_index,
+		const char 		*stream_name,
+		size_t			 num_slots,
+		size_t			 slot_size,
+		void 			*buffer);
+
+	/**
+	 * \brief Release the resources associated with a low latency stream
+	 *
+	 * \param llstream a low latency stream structure created by way of ::max_llstream_setup
+	 * \ingroup llstreams
+	 */
+	void max_llstream_release(
+		max_llstream_t	*llstream);
+
+	/**
+	 * \brief Request slots of data from the stream for reading
+	 *
+	 * \param llstream a low latency stream structure created by way of ::max_llstream_setup
+	 * \param max_slots maximum number of slots to read
+	 * \param slots on success, *slots is modified to point to the newly read data
+	 * \return the number of slots found to contain new data
+	 * \ingroup llstreams
+	 *
+	 * This function returns immediately.
+	 *
+	 */
+	ssize_t max_llstream_read(
+		max_llstream_t	 *llstream,
+		size_t			  max_slots,
+		void 			**slots);
+
+	/**
+	 * \brief Release these slots obtained through ::max_llstream_read that are no longer needed
+	 * \param llstream a low latency stream structure created by way of ::max_llstream_setup
+	 * \param num_slots numbers of slots to be released
+	 * \ingroup llstreams
+	 *
+	 */
+	void max_llstream_read_discard(
+		max_llstream_t	*llstream,
+		size_t			 num_slots);
+
+	/**
+	 * \brief Request empty slots for writing
+	 * \param llstream a low latency stream structure created by way of ::max_llstream_setup
+	 * \param max_slots maximum number of slots to write
+	 * \param slots on success, *slots is modified to point to the slots to write
+	 * \ingroup llstreams
+	 *
+	 * This function returns immediately.
+	 */
+	ssize_t max_llstream_write_acquire(
+		max_llstream_t 	 *llstream,
+		size_t			  max_slots,
+		void 			**slots);
+
+	/**
+	 * \brief Send over written slots to the DFE
+	 * \param llstream a low latency stream structure created by way of ::max_llstream_setup
+	 * \param num_slots number of slots written
+	 * \ingroup llstreams
+	 */
+	void max_llstream_write(
+		max_llstream_t	*llstream,
+		size_t			 num_slots);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SLIC_LLSTREAM_H_ */
+/**\file */
+#ifndef SLIC_DECLARATIONS_Simple_H
+#define SLIC_DECLARATIONS_Simple_H
+#include "MaxSLiCInterface.h"
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+#define Simple_PCIE_ALIGNMENT (16)
+
+
+/*----------------------------------------------------------------------------*/
+/*---------------------------- Interface default -----------------------------*/
+/*----------------------------------------------------------------------------*/
+
+
+
+
+/**
+ * \brief Basic static function for the interface 'default'.
+ * 
+ * \param [in] param_N Interface Parameter "N".: Number of data items to process
+ * \param [in] instream_x The stream should be of size (param_N * 4) bytes.
+ * \param [out] outstream_y The stream should be of size (param_N * 4) bytes.
+ */
+void Simple(
+	int32_t param_N,
+	const float *instream_x,
+	float *outstream_y);
+
+/**
+ * \brief Basic static non-blocking function for the interface 'default'.
+ * 
+ * Schedule to run on an engine and return immediately.
+ * The status of the run can be checked either by ::max_wait or ::max_nowait;
+ * note that one of these *must* be called, so that associated memory can be released.
+ * 
+ * 
+ * \param [in] param_N Interface Parameter "N".: Number of data items to process
+ * \param [in] instream_x The stream should be of size (param_N * 4) bytes.
+ * \param [out] outstream_y The stream should be of size (param_N * 4) bytes.
+ * \return A handle on the execution status, or NULL in case of error.
+ */
+max_run_t *Simple_nonblock(
+	int32_t param_N,
+	const float *instream_x,
+	float *outstream_y);
+
+/**
+ * \brief Advanced static interface, structure for the engine interface 'default'
+ * 
+ */
+typedef struct { 
+	int32_t param_N; /**<  [in] Interface Parameter "N".: Number of data items to process */
+	const float *instream_x; /**<  [in] The stream should be of size (param_N * 4) bytes. */
+	float *outstream_y; /**<  [out] The stream should be of size (param_N * 4) bytes. */
+} Simple_actions_t;
+
+/**
+ * \brief Advanced static function for the interface 'default'.
+ * 
+ * \param [in] engine The engine on which the actions will be executed.
+ * \param [in,out] interface_actions Actions to be executed.
+ */
+void Simple_run(
+	max_engine_t *engine,
+	Simple_actions_t *interface_actions);
+
+/**
+ * \brief Advanced static non-blocking function for the interface 'default'.
+ *
+ * Schedule the actions to run on the engine and return immediately.
+ * The status of the run can be checked either by ::max_wait or ::max_nowait;
+ * note that one of these *must* be called, so that associated memory can be released.
+ *
+ * 
+ * \param [in] engine The engine on which the actions will be executed.
+ * \param [in] interface_actions Actions to be executed.
+ * \return A handle on the execution status of the actions, or NULL in case of error.
+ */
+max_run_t *Simple_run_nonblock(
+	max_engine_t *engine,
+	Simple_actions_t *interface_actions);
+
+/**
+ * \brief Group run advanced static function for the interface 'default'.
+ * 
+ * \param [in] group Group to use.
+ * \param [in,out] interface_actions Actions to run.
+ *
+ * Run the actions on the first device available in the group.
+ */
+void Simple_run_group(max_group_t *group, Simple_actions_t *interface_actions);
+
+/**
+ * \brief Group run advanced static non-blocking function for the interface 'default'.
+ * 
+ *
+ * Schedule the actions to run on the first device available in the group and return immediately.
+ * The status of the run must be checked with ::max_wait. 
+ * Note that use of ::max_nowait is prohibited with non-blocking running on groups:
+ * see the ::max_run_group_nonblock documentation for more explanation.
+ *
+ * \param [in] group Group to use.
+ * \param [in] interface_actions Actions to run.
+ * \return A handle on the execution status of the actions, or NULL in case of error.
+ */
+max_run_t *Simple_run_group_nonblock(max_group_t *group, Simple_actions_t *interface_actions);
+
+/**
+ * \brief Array run advanced static function for the interface 'default'.
+ * 
+ * \param [in] engarray The array of devices to use.
+ * \param [in,out] interface_actions The array of actions to run.
+ *
+ * Run the array of actions on the array of engines.  The length of interface_actions
+ * must match the size of engarray.
+ */
+void Simple_run_array(max_engarray_t *engarray, Simple_actions_t *interface_actions[]);
+
+/**
+ * \brief Array run advanced static non-blocking function for the interface 'default'.
+ * 
+ *
+ * Schedule to run the array of actions on the array of engines, and return immediately.
+ * The length of interface_actions must match the size of engarray.
+ * The status of the run can be checked either by ::max_wait or ::max_nowait;
+ * note that one of these *must* be called, so that associated memory can be released.
+ *
+ * \param [in] engarray The array of devices to use.
+ * \param [in] interface_actions The array of actions to run.
+ * \return A handle on the execution status of the actions, or NULL in case of error.
+ */
+max_run_t *Simple_run_array_nonblock(max_engarray_t *engarray, Simple_actions_t *interface_actions[]);
+
+/**
+ * \brief Converts a static-interface action struct into a dynamic-interface max_actions_t struct.
+ *
+ * Note that this is an internal utility function used by other functions in the static interface.
+ *
+ * \param [in] maxfile The maxfile to use.
+ * \param [in] interface_actions The interface-specific actions to run.
+ * \return The dynamic-interface actions to run, or NULL in case of error.
+ */
+max_actions_t* Simple_convert(max_file_t *maxfile, Simple_actions_t *interface_actions);
+
+/**
+ * \brief Initialise a maxfile.
+ */
+max_file_t* Simple_init(void);
+
+/* Error handling functions */
+int Simple_has_errors(void);
+const char* Simple_get_errors(void);
+void Simple_clear_errors(void);
+/* Free statically allocated maxfile data */
+void Simple_free(void);
+/* returns: -1 = error running command; 0 = no error reported */
+int Simple_simulator_start(void);
+/* returns: -1 = error running command; 0 = no error reported */
+int Simple_simulator_stop(void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+#endif /* SLIC_DECLARATIONS_Simple_H */

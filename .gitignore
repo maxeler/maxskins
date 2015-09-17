@@ -1,0 +1,7 @@
+*.pyc
+*.swp
+*.thrift
+*.o
+*.tar.gz
+*.lic
+*~

@@ -1,0 +1,770 @@
+{%- macro valid_argument_name (name) -%}
+    {##
+     #  Transforms argument name to valid name.
+     #
+     #  Input:
+     #      name -- name of argument
+     #
+     #  Output:
+     #      Valid name.
+     #
+     #  Example:
+     #      >>> name = 'data'
+     #      >>> t = Template('{{valid_argument_name(name)}}')
+     #      >>> print t.render(name = name)
+     #      data
+    ##}
+    {%- if name == 'val' -%} value
+    {%- elif name == '__sigmask' -%} 
+        ____sigmask
+    {%- elif name == '__fds_bits' -%}
+        fds_bits
+    {%- else -%}
+        {{name}}
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro valid_struct_name (name) -%}
+    {##
+     #  Transforms struct name to valid name.
+     #
+     #  Input:
+     #      name -- name of argument
+     #
+     #  Output:
+     #      Valid name.
+     #
+     #  Example:
+     #      >>> name = 'data'
+     #      >>> t = Template('{{valid_struct_name(name)}}')
+     #      >>> print t.render(name = name)
+     #      data
+    ##}
+    {%- if '_' == name[0] -%}
+        {%- set name = 'struct' + name -%}
+    {%- endif -%}
+
+    {{name|replace('const ','')|replace(' ','_')}}
+{%- endmacro -%}
+
+{%- macro valid_name_struct (name) -%}
+    {##
+     #  Transforms argument name to valid name.
+     #
+     #  Input:
+     #      name -- name of argument
+     #
+     #  Output:
+     #      Valid name.
+     #
+     #  Example:
+     #      >>> name = 'data'
+     #      >>> t = Template('{{name(name)}}')
+     #      >>> print t.render(name = name)
+     #      data
+    ##}
+    {%- if name == '__fds_bits' -%} fds_bits
+    {%- else -%} {{name}}
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro generic_name (name, counter) -%}
+    {##
+     #  If no name is provided creates generic name.
+     #
+     #  Input:
+     #      name -- name of argument
+     #      counter -- number of argument
+     #
+     #  Output:
+     #      Generic name if no name is provided.
+     #
+     #  Example:
+     #      >>> name = ''
+     #      >>> t = Template('{{generic_name(name, 5)}}')
+     #      >>> print t.render(name = name)
+     #      argument_5
+    ##}
+    {%- if name -%}
+        {{valid_argument_name(name)}}
+    {%- else -%}
+        argument_{{counter}}
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro c_to_thrift_type_map (type) -%}
+    {## 
+     #  Converts c type to thrift type in c.
+     #
+     #  Input:
+     #      type -- c type
+     #
+     #  Output:
+     #      Thrift type.
+     #
+     #  Example:
+     #      >>> t = Template('{{c_to_thrift_type_map(type)}}')
+     #      >>> print t.render(type = 'char')
+     #      int8_t
+    ##}
+    {%- set type = type|replace('unsigned ', '')
+                       |replace('signed ',   '')
+                       |replace('const ',    '')
+                       |replace(' const',    '') -%}
+    {%- if   type == 'int64_t'  or type == 'uint64_t'
+        or   type == 'ssize_t'  or type == 'size_t' 
+        or   type == 'long int' or type == 'long long int'
+        or   type == 'long'     or type == 'long long' -%} 
+        int64_t
+    {%- elif type == 'int32_t' or type == 'uint32_t' or type == 'int' -%} 
+        int32_t
+    {%- elif type == 'int16_t'   or type == 'uint16_t' 
+        or   type == 'short int' or type == 'short' -%} 
+        int16_t
+    {%- elif type == 'int8_t' or type == 'uint8_t' or type == 'char' -%} 
+        int8_t
+    {%- elif type == 'double' or type == 'float'   or type == 'long double' -%} 
+        double
+    {%- elif type == 'void' -%} 
+        void
+    {%- elif type == 'bool' or type == '_Bool' -%} 
+        bool
+    {%- elif type == 'char*' or type == 'string' -%}
+        std::string&
+    {%- elif '*' in type -%} 
+        remote_ptr
+    {%- elif type in data.enums|map(attribute = 'name') -%} 
+        {{valid_struct_name(type)}}_struct&
+    {%- elif type in data.structs|map(attribute = 'name') -%} 
+        {{type|replace(' ','_')}}_struct&
+    {%- elif type in data.typedefs|map(attribute='name') -%} 
+        {{type}}_type
+    {%- else -%} 
+        remote_ptrTODO
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro thtift_to_c_argument_cast (type, name, prefix, postfix) -%}
+    {## 
+     #  Casts thrift argument to c type.
+     #
+     #  Input:
+     #      type -- argument type
+     #      name -- argument name
+     #      prefix -- prefix before name
+     #      postfix -- postfix after name
+     #
+     #  Output:
+     #      C argument.
+     #
+     #  Example:
+     #      >>> t = Template('{{thtift_to_c_argument_cast(type, name, prefix, p
+     #      ostfix)}}')
+     #      >>> print t.render(type = '__mbstate_t', name = 'arg', prefix = 'ol
+     #      d.', postfix = '[i]')
+     #      *((__mbstate_t*) old.arg[i])
+    ##}
+    {%- if type|replace('const ','')
+        in data.structs|map(attribute = 'name') -%}
+         convert_from_{{valid_struct_name(type)}}_struct({{prefix}}{{valid_argument_name(name)}}{{postfix}})
+    {%- elif type == '__mbstate_t'
+        or   type == 'struct in6_addr'
+        or   type == '__gnuc_va_list' -%}
+        *(({{type}}*) {{prefix}}{{valid_argument_name(name)}}{{postfix}})
+    {%- else -%}
+        ({{type}}) {{prefix}}{{valid_argument_name(name)}}{{postfix}}
+        {%- if 'char*' == type|replace('const ','') -%}
+            .c_str()
+        {%- elif type in data.enums|map(attribute = 'name') -%}
+            .type
+        {%- endif -%}
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro c_to_thrift_argument_cast (type, name, prefix, postfix) -%}
+    {## 
+     #  Casts c argument to thrift type.
+     #
+     #  Input:
+     #      type -- argument type
+     #      name -- argument name
+     #      prefix -- prefix before name
+     #      postfix -- postfix after name
+     #
+     #  Output:
+     #      Thrift argument.
+     #
+     #  Example:
+     #      >>> t = Template('{{c_to_thrift_argument_cast(type, name, prefix, p
+     #      ostfix)}}')
+     #      >>> print t.render(type = '__mbstate_t', name = 'arg', prefix = 'ol
+     #      d.', postfix = '[i]')
+     #      (remote_ptrTODO) & old.arg[i]
+    ##}
+    {%- if type|replace('const ','') 
+       in data.structs|map(attribute = 'name') -%}
+        convert_to_{{valid_struct_name(type)}}_struct({{prefix}}{{valid_name_struct(name)}}{{postfix}})
+    {%- elif '*' in type -%}
+        (remote_ptr) {{prefix}}{{valid_name_struct(name)}}{{postfix}}
+    {%- elif type == '__mbstate_t'
+        or   type == 'struct in6_addr' -%}
+        (remote_ptrTODO) &{{prefix}}{{valid_name_struct(name)}}{{postfix}}
+    {%- else -%}
+        ({{type}}) {{prefix}}{{valid_name_struct(name)}}{{postfix}}
+        {%- if 'char*' == type|replace('const ','') -%}
+            .c_str()
+        {%- endif -%}
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro generate_function (function) -%}
+    {## 
+     #  Generates c function.
+     #
+     #  Input:
+     #      function -- parsed function
+     #
+     #      Each function has:
+     #          name -- name of function
+     #          type -- type of function
+     #          arguments -- list of arguments
+     #
+     #          Each argument has:
+     #              type -- type of the argument
+     #              name -- name of the argument
+     #              array -- array lenght of argument (optional)
+     #
+     #  Output:
+     #      Function implemented in c.
+     #
+     #  Example:
+     #      >>> function = {'type': 'max_actarray_t*', 'name': 'max_actarray_in
+     #      it', 'arguments': [{'type': 'max_file_t*', 'name': 'maxfile'}, {'ty
+     #      pe': 'int', 'name': 'nb_actions'}]}
+     #      >>> t = Template('{{generate_function(function)}}')
+     #      >>> print t.render(function = function)
+     #          remote_ptr max_actarray_init(
+     #              const remote_ptr maxfile,
+     #              const int32_t nb_actions) {
+     #                  return (remote_ptr)::max_actarray_init(
+     #                      (::max_file_t*) maxfile,
+     #                      (int32_t) nb_actions)
+     #          }
+     #    
+    ##}
+    {#--------------------------#}
+    {#- FUNCTION TYPE AND NAME -#}
+    {#--------------------------#}
+    {%- if function.type|replace('unsigned ', '')
+                        |replace('signed ',   '')
+                        |replace('const ',    '')
+                        |replace(' const',    '') == 'char*'
+        or   function.type == 'string' %}
+    void {{function.name}}(
+        std::string& _return
+        {%- if function.arguments -%} , {%- endif -%}
+    {%- elif function.type|replace('const ','')
+        in data.enums|map(attribute = 'name') %}
+    void {{function.name}}(
+        {{function.type}}_struct& _return
+        {%- if function.arguments -%} , {%- endif -%}
+    {%- elif function.type|replace('const ','')
+        in data.structs|map(attribute = 'name') %}
+    void {{function.name}}(
+        {{valid_struct_name(function.type)}}_struct& _return
+        {%- if function.arguments -%} , {%- endif -%}
+    {%- else %}
+    {{c_to_thrift_type_map(function.type)}} {{function.name}}(
+    {%- endif -%}
+
+    {#----------------------#}
+    {#- FUNCTION ARGUMENTS -#}
+    {#----------------------#}
+    {%- set counter = 1 -%}
+    {%- for argument in function.arguments %}
+        const {% if argument.array -%}
+                  std::vector<{{c_to_thrift_type_map(argument.type)|replace('&', '')}}>&
+              {%- else -%}
+                  {{c_to_thrift_type_map(argument.type)}}
+              {%- endif %} {{generic_name(argument.name, counter)}}
+        {%- set counter = counter + 1 -%}
+        {%- if not loop.last -%} , {%- endif -%}
+    {%- endfor -%}
+    ) {
+
+    {#-------------------------------------#}
+    {#- STRUCTURES AND ARRAYS DECLARATION -#}
+    {#-------------------------------------#}
+    {%- for argument in function.arguments %}
+        {%- if argument.array %}
+            {{argument.type|replace('const ', '')}} array_{{valid_argument_name(argument.name)-}}
+                                                    [{%- if argument.array != ' ' -%}
+                                                        {{argument.array}}
+                                                     {%- else -%}
+                                                        {{valid_argument_name(argument.name)}}.size()
+                                                     {%- endif -%}];
+            for(int i = 0; i < {%if argument.array != ' ' -%}
+                                   {{argument.array}}
+                               {%- else -%}
+                                   {{valid_argument_name(argument.name)}}.size()
+                               {%- endif %}; i++) {
+                array_{{valid_argument_name(argument.name)}}[i] = {{thtift_to_c_argument_cast(argument.type|replace('const ', ''),
+                                                                                              argument.name,
+                                                                                              '', 
+                                                                                              '[i]')}};
+            }
+        {%- elif argument.type|replace('const ', '') 
+            in data.structs|map(attribute='name') %}
+            {{argument.type}} _struct_{{valid_argument_name(argument.name)}}  = convert_from_{{argument.type|replace('const ', '')
+                                                                                                            |replace(' ', '_')}}_struct({{valid_argument_name(argument.name)}});
+        {% endif %}
+    {%- endfor -%}
+
+    {#-----------------#}
+    {#- FUNCTION CALL -#}
+    {#-----------------#}
+    {%- if function.type == 'void' %}
+            ::{{function.name}}(
+    {%- else -%}
+        {%- if function.type|replace('unsigned ', '')
+                            |replace('signed ',   '')
+                            |replace('const ',    '')
+                            |replace(' const',    '') == 'char*'
+            or   function.type == 'string' %}
+            _return = std::string(
+        {%- elif function.type 
+            in data.enums|map(attribute='name') %}
+            _return.type = ({{function.type}}_enum::type)
+        {%- elif function.type|replace('const ','') 
+            in data.structs|map(attribute='name') %}
+            _return = convert_to_{{function.type|replace('const ','')
+                                                |replace(' ','_')}}_struct(
+        {%- else %}
+            return ({{c_to_thrift_type_map(function.type)}})
+        {%- endif %} ::{{function.name}}(
+    {%- endif -%}
+
+    {#---------------------------#}
+    {#- FUNCTION CALL ARGUMENTS -#}
+    {#---------------------------#}
+    {%- set counter = 1 -%}
+    {%- for argument in function.arguments %}
+                {%- if argument.array -%}
+                    ({{argument.type}}*) array_{{valid_argument_name(argument.name)}}
+                {%- elif argument.type|replace('unsigned ', '')
+                                      |replace('signed ',   '')
+                                      |replace('const ',    '')
+                                      |replace(' const',    '') == 'char*'
+                    or   argument.type == 'string' -%}
+                    ({{argument.type}}) {{generic_name(argument.name, counter)}}.c_str()
+                {%- elif argument.type in data.enums|map(attribute = 'name') -%}
+                    ({{argument.type}}) {{generic_name(argument.name, counter)}}.type
+                {%- elif argument.type|replace('const ', '') 
+                    in data.structs|map(attribute = 'name') -%}
+                    _struct_{{generic_name(argument.name, counter)}}
+                {%- elif argument.type == '__gnuc_va_list' %}
+                   *((__gnuc_va_list*) {{generic_name(argument.name, counter)}})
+                {%- else -%}
+                    ({{argument.type}}) {{generic_name(argument.name, counter)}}
+                {%- endif -%}
+        {%- set counter = counter + 1 -%}
+        {%- if not loop.last -%} , {%- endif -%}
+    {%- endfor -%}
+    )
+
+    {%- if function.type|replace('const ','') == 'char*'
+        or function.type == 'string' 
+        or function.type|replace('const ','')
+        in data.structs|map(attribute='name')-%}
+        )
+    {%- endif -%}
+
+    ;
+    }
+
+{% endmacro -%}
+
+{%- macro generate_malloc (type) %}
+    {## 
+     #  Generates malloc funcion
+     #
+     #  Input:
+     #      type -- c type
+     #
+     #  Output:
+     #      Malloc type function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_malloc(type)}}')
+     #      >>> print t.render(type = 'int32_t')
+     #          remote_ptr malloc_int32_t(
+     #              const int64_t size) {
+     #                  int32_t * array = (int32_t*)malloc(size*sizeof(int32_t));
+     #                  return (remote_ptr)array;
+     #          }
+     #    
+    ##}
+    remote_ptr malloc_{{type}}(
+        const int64_t size) {
+            {{c_to_thrift_type_map(type)|replace('&','')}} * array = ({{c_to_thrift_type_map(type)|replace('&','')}}*)malloc(size*sizeof({{c_to_thrift_type_map(type)|replace('&','')}}));
+            return (remote_ptr)array;
+    }
+{% endmacro -%}
+
+{%- macro generate_send_data (type) %}
+    {## 
+     #  Generates send_data funcion
+     #
+     #  Input:
+     #      type -- c type
+     #
+     #  Output:
+     #      Sends data of type type function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_send_data(type)}}')
+     #      >>> print t.render(type = 'int32_t')
+     #          void send_data_int32_t(
+     #              const remote_ptr address,
+     #              const std::vector<int32_t> & data) {
+     #                  memcpy(
+     #                      (void*)address,
+     #                      data.data(),
+     #                      data.size()*sizeof(int32_t));
+     #          }
+     #    
+    ##}
+    void send_data_{{type}}(
+        const remote_ptr address,
+        const std::vector<{{c_to_thrift_type_map(type)|replace('&','')}}> & data) {
+            memcpy(
+                (void*)address,
+                data.data(),
+                data.size()*sizeof({{c_to_thrift_type_map(type)|replace('&','')}}));
+    }
+{% endmacro -%}
+
+{%- macro generate_receive_data (type) %}
+    {## 
+     #  Generates recive_data funcion
+     #
+     #  Input:
+     #      type -- c type
+     #
+     #  Output:
+     #      Recive data of type type function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_receive_data(type)}}')
+     #      >>> print t.render(type = 'int32_t')
+     #          void receive_data_int32_t(
+     #              std::vector<int32_t> & _return,
+     #              const remote_ptr address,
+     #              const int64_t size) {
+     #                  _return.resize(size);
+     #                  memcpy(
+     #                      _return.data(),
+     #                      (void*)address,
+     #                      size*sizeof(int32_t));
+     #          }
+     #    
+    ##}
+    void receive_data_{{type}}(
+        std::vector<{{c_to_thrift_type_map(type)|replace('&','')}}> & _return,
+        const remote_ptr address,
+        const int64_t size) {
+            _return.resize(size);
+            memcpy(
+                _return.data(),
+                (void*)address,
+                size*sizeof({{c_to_thrift_type_map(type)|replace('&','')}}));
+    }
+{% endmacro -%}
+
+{%- macro generate_send_struct (struct) %}
+    {## 
+     #  Generates send_struct funcion
+     #
+     #  Input:
+     #      struct -- parsed struct.
+     #
+     #      Each structure has:
+     #          name -- name of structure
+     #          arguments -- list of arguments
+     #
+     #          Each argument has:
+     #              type -- type of the argument 
+     #              name -- name of the argument
+     #              array -- array lenght of argument (optional)
+     #
+     #  Output:
+     #      Send struct function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_send_struct(struct)}}')
+     #      >>> print t.render(struct = {'name': '__fsid_t', 'argument': [{'arr
+     #      ay': '2', 'type': 'int', 'name': '__val'}]})
+     #              remote_ptr send___fsid_t(
+     #                  const __fsid_t_struct & _struct_) {
+     #                      __fsid_t *tmp = (__fsid_t*) malloc(sizeof(__fsid_t)
+     #      );
+     #                      for(int i = 0; i < 2; i++) {
+     #                          tmp->__val[i] = (int) _struct_.__val[i];
+     #                      }
+     #              
+     #                  return (remote_ptr) tmp;
+     #              }
+     #    
+    ##}
+    remote_ptr send_{{valid_struct_name(struct.name)}}(
+        const {{valid_struct_name(struct.name)}}_struct & _struct_) {
+            {{struct.name}} *tmp = ({{struct.name}}*) malloc(sizeof({{struct.name}}));
+            {% for argument in struct.arguments -%}
+            {%- if argument.array -%}
+            for(int i = 0; i < {%if argument.array != ' ' -%}
+                                   {{argument.array}}
+                               {%- else -%}
+                                   _struct_.{{valid_argument_name(argument.name)}}.size()
+                               {%- endif -%}; i++) {
+                tmp->{{valid_name_struct(argument.name)}}[i] = {{thtift_to_c_argument_cast(argument.type,
+                                                                                           argument.name,
+                                                                                           '_struct_.', 
+                                                                                           '[i]')}};
+            }
+            {%- else -%}
+            tmp->{{valid_name_struct(argument.name)}} = {{thtift_to_c_argument_cast(argument.type,
+                                                                                    argument.name,
+                                                                                    '_struct_.', 
+                                                                                    '')}};
+            {%- endif %}
+            {% endfor %}
+            return (remote_ptr) tmp;
+    }
+{% endmacro -%}
+
+{%- macro generate_convert_from_struct (struct) %}
+    {## 
+     #  Generates convert_from_struct funcion.
+     #
+     #  Input:
+     #      struct -- parsed struct     
+     #
+     #      Each structure has:
+     #          name -- name of structure
+     #          arguments -- list of arguments
+     #
+     #          Each argument has:
+     #              type -- type of the argument 
+     #              name -- name of the argument
+     #              array -- array lenght of argument (optional)
+     #
+     #  Output:
+     #      Convert from struct function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_conver_from_struct(struct)}}')
+     #      >>> print t.render(struct = {'name': '__fsid_t', 'argument': [{'arr
+     #      ay': '2', 'type': 'int', 'name': '__val'}]})
+     #              __fsid_t convert_from___fsid_t_struct(
+     #                  __fsid_t_struct _old) {
+     #                      __fsid_t _new;
+     #                      for(int i = 0; i < 2; i++) {
+     #                          _new.__val[i] = (int) _old.__val[i];
+     #                      }
+     #                      
+     #                      return _new;
+     #              }
+     #    
+    ##}
+    {{struct.name}} convert_from_{{valid_struct_name(struct.name)}}_struct(
+        {{valid_struct_name(struct.name)}}_struct _old) {
+            {{struct.name}} _new;
+            {% for argument in struct.arguments -%}
+            {%- if argument.array -%}
+            for(int i = 0; i < {%if argument.array != ' ' -%}
+                                   {{argument.array}}
+                               {%- else -%}
+                                   _old.{{valid_argument_name(argument.name)}}.size()
+                               {%- endif -%}; i++) {
+                _new.{{valid_name_struct(argument.name)}}[i] = {{thtift_to_c_argument_cast(argument.type,
+                                                                                           argument.name,
+                                                                                           '_old.', 
+                                                                                           '[i]')}};
+            }
+            {%- else -%}
+            _new.{{valid_name_struct(argument.name)}} = {{thtift_to_c_argument_cast(argument.type,
+                                                                                    argument.name,
+                                                                                    '_old.',
+                                                                                    '')}};
+            {%- endif %}
+            {% endfor %}
+            return _new;
+    }
+{% endmacro -%}
+
+{%- macro generate_convert_to_struct (struct) %}
+    {## 
+     #  Generates convert_to_struct funcion.
+     #
+     #  Input:
+     #      struct -- parsed struct
+     #
+     #      Each structure has:
+     #          name -- name of structure
+     #          arguments -- list of arguments
+     #
+     #          Each argument has:
+     #              type -- type of the argument 
+     #              name -- name of the argument
+     #              array -- array lenght of argument (optional)
+     #
+     #  Output:
+     #      Convert to struct function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_convert_to_struct(struct)}}')
+     #      >>> print t.render(struct = {'name': '__fsid_t', 'argument': [{'arr
+     #      ay': '2', 'type': 'int', 'name': '__val'}]})
+     #              _fsid_t_struct convert_to___fsid_t_struct(
+     #                  __fsid_t _old) {
+     #                      __fsid_t_struct _new;
+     #                      _new.__val.resize(2);
+     #                      for(int i = 0; i < 2; i++) {
+     #                          _new.__val[i]= (int) _old__val[i];
+     #                      }
+     #                      
+     #                      return _new;
+     #              }
+     #    
+    ##}
+    {{valid_struct_name(struct.name)}}_struct convert_to_{{valid_struct_name(struct.name)}}_struct(
+        {{struct.name}} _old) {
+            {{valid_struct_name(struct.name)}}_struct _new;
+            {% for argument in struct.arguments -%}
+            {%- if argument.array -%}
+            _new.{{valid_argument_name(argument.name)}}.resize({% if argument.array != ' ' -%}
+                                                                   {{argument.array}}
+                                                               {%- else -%}
+                                                                   0
+                                                               {%- endif %});
+            for(int i = 0; i < {% if argument.array != ' ' -%}
+                                   {{argument.array}}
+                               {%- else -%}
+                                   0
+                               {%- endif %}; i++) {
+                _new.{{valid_argument_name(argument.name)}}[i]{% if  argument.type in data.enums|map(attribute = 'name') %}
+                                                                  .type = ({{argument.type}}_enum::type)
+                                                              {%- else -%}
+                                                                  =
+                                                              {%- endif %} {{c_to_thrift_argument_cast (argument.type,
+                                                                                                        argument.name,
+                                                                                                        '_old.',
+                                                                                                        '[i]')}};
+            }
+            {%- else -%}
+            _new.{{valid_argument_name(argument.name)}}{% if  argument.type in data.enums|map(attribute='name') -%}
+                                                           .type = ({{argument.type}}_enum::type)
+                                                       {%- else -%}
+                                                           =
+                                                       {%- endif %} {{c_to_thrift_argument_cast (argument.type,
+                                                                                                 argument.name,
+                                                                                                 '_old.',
+                                                                                                 '')}};
+            {%- endif %}
+            {% endfor %}
+            return _new;
+    }
+{% endmacro -%}
+
+#include "{{maxfile_name}}.h"
+#include "{{maxfile_name}}Service.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+using namespace ::com::maxeler::{{maxfile_name}};
+
+class {{maxfile_name}}ServiceHandler : virtual public {{maxfile_name}}ServiceIf {
+public:
+
+    {{maxfile_name}}ServiceHandler() {}
+    
+    {%- for struct in data.structs -%}
+        {{-generate_send_struct(struct = struct)-}}
+        {{-generate_convert_from_struct(struct = struct)-}}
+        {{-generate_convert_to_struct(struct = struct)-}}
+    {%- endfor %}
+
+    {% for function in data.functions -%}
+        {%- if function.name[0] != '_' -%}
+        {{-generate_function(function)}}
+        {%- endif -%}
+    {%- endfor %}
+
+    {%- set types = ['int8_t', 'int16_t', 'int32_t', 'int64_t', 'double'] -%}
+    {%- for type in types -%}
+        {{-generate_malloc(type = type)-}}
+        {{-generate_send_data(type = type)-}}
+        {{-generate_receive_data(type = type)-}}
+    {%- endfor %}
+
+    remote_ptr malloc_float(
+        const int64_t size) {
+            float * array = (float*)malloc(size*sizeof(float));
+            return (remote_ptr)array;
+    }
+
+    void send_data_float(
+        const remote_ptr address,
+        const std::vector<double> & data) {
+            float *array = (float*)address;
+            int data_size = data.size();
+            for(int i = 0; i < data_size; i++) {
+                array[i] = data[i];
+            }
+    }
+
+    void receive_data_float(
+        std::vector<double> & _return,
+        const remote_ptr address,
+        const int64_t size) {
+            float *array = (float*)address;
+            _return.resize(size);
+            for(int i = 0; i < size; i++) {
+                _return[i] = array[i];
+            }
+    }
+};
+
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/server/TSimpleServer.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TBufferTransports.h>
+
+using namespace ::apache::thrift;
+using namespace ::apache::thrift::protocol;
+using namespace ::apache::thrift::transport;
+using namespace ::apache::thrift::server;
+
+using boost::shared_ptr;
+
+int main(int argc, char **argv) {
+    
+    if (argc!=2) {
+        printf("Usage: {{maxfile_name}}_server <port_num>\n");
+        fflush(stdout);
+        exit(-1);
+    }
+    
+    int port = atoi(argv[1]);
+	shared_ptr<{{maxfile_name}}ServiceHandler> handler(new {{maxfile_name}}ServiceHandler());
+	shared_ptr<TProcessor> processor(new {{maxfile_name}}ServiceProcessor(handler));
+	shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
+	shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
+	shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
+
+	TSimpleServer server(processor, serverTransport, transportFactory, protocolFactory);
+	server.serve();
+	return 0;
+}

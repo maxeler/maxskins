@@ -1,0 +1,444 @@
+{%- macro valid_argument_name (name) -%}
+    {##
+     #  Transforms argument name to valid name.
+     #
+     #  Input:
+     #      name -- name of argument
+     #
+     #  Output:
+     #      Valid name.
+     #
+     #  Example:
+     #      >>> name = 'data'
+     #      >>> t = Template('{{valid_argument_name(name)}}')
+     #      >>> print t.render(name = name)
+     #      data
+    ##}
+    {%- if name == 'val' -%} value
+    {%- elif name == '__sigmask' -%} ____sigmask
+    {%- elif name == '__fds_bits' -%} fds_bits
+    {%- else -%} {{name}}
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro valid_struct_name (name) -%}
+    {##
+     #  Transforms struct name to valid name.
+     #
+     #  Input:
+     #      name -- name of argument
+     #
+     #  Output:
+     #      Valid name.
+     #
+     #  Example:
+     #      >>> name = 'data'
+     #      >>> t = Template('{{valid_struct_valid_argument_name(name)}}')
+     #      >>> print t.render(name = name)
+     #      data
+    ##}
+    {%- if '_' == name[0] -%}
+        {%- set name = 'struct' + name -%}
+    {%- endif -%}
+
+    {{name|replace('const ','')|replace(' ','_')}}
+{%- endmacro -%}
+
+{%- macro thrift_type (type, array) -%}
+    {## 
+     #  Transforms c type to thrift type.
+     #
+     #  Input:
+     #      type -- c type
+     #
+     #  Output:
+     #      Thrift type.
+     #
+     #  Example:
+     #      >>> type = 'char'
+     #      >>> t = Template('{{thrift_type(type)}}')
+     #      >>> print t.render(type = type)
+     #      byte
+    ##}
+    {%- set type = type|replace('unsigned ', '')
+                       |replace('signed ',   '')
+                       |replace('const ',    '')
+                       |replace(' const',    '') -%}
+
+    {% if array -%} list< {%- endif -%}
+
+    {%- if type == 'int64_t'       or type == 'uint64_t' 
+        or type == 'ssize_t'       or type == 'size_t' 
+        or type == 'long long int' or type == 'long int' 
+        or type == 'long'          or type == 'long long' -%} 
+        i64
+    {%- elif type == 'int32_t' or type == 'uint32_t' or type == 'int' -%}
+        i32
+    {%- elif type == 'int16_t'   or type == 'uint16_t' 
+          or type == 'short int' or type == 'short' -%}
+        i16
+    {%- elif type == 'int8_t' or type == 'uint8_t' or type == 'char' -%} 
+        byte
+    {%- elif type == 'double' or type == 'float' or type == 'long double' -%}
+        double
+    {%- elif type == 'char*' or type == 'string' -%}
+        string
+    {%- elif type == 'void' -%}
+        void
+    {%- elif type == 'bool' or type == '_Bool' -%}
+        bool
+    {%- elif '*' in type -%}
+        remote_ptr
+    {%- elif type in data.enums|map(attribute = 'name') -%}
+        {{type|replace(' ','_')}}_struct
+    {%- elif type in data.structs|map(attribute = 'name') -%}
+        {{valid_struct_name(type)}}_struct
+    {%- elif type in data.typedefs|map(attribute = 'name') and 'struct' -%}
+        {{type}}_type
+    {%- else -%}
+        remote_ptrTODO
+    {%- endif -%} 
+
+    {%- if array -%} > {%- endif -%}
+{%- endmacro -%}
+
+{%- macro generate_enum (enum) -%}
+    {## 
+     #  Generates thrift enum from parsed enum.
+     #
+     #  Input:
+     #      enum -- parsed enum.
+     #
+     #      Each enum has:
+     #          name -- name of enum
+     #          elements -- list of elements
+     #
+     #          Each element has:
+     #              name -- name of the element
+     #              value -- value of the element
+     #
+     #  Output:
+     #      Enum implemented in thrift.
+     #
+     #  Example:
+     #      >>> enum = [{'elements': [{'name': 'MAX_DEBUG_NEVER', 'value': '0'}
+     #      , {'name': 'MAX_DEBUG_ON_ERROR', 'value': '1'}, {'name': 'MAX_DEBUG
+     #      _ALWAYS', 'value': '2'}], 'name': 'max_debug_mode_t'}]
+     #      >>> t = Template('{{generate_enum(enum)}}')
+     #      >>> print t.render(enum = enum)
+     #      enum max_debug_mode_t_enum { 
+     #          MAX_DEBUG_NEVER = 0,
+     #          MAX_DEBUG_ON_ERROR = 1,
+     #          MAX_DEBUG_ALWAYS = 2
+     #      }
+     #      
+    ##}
+enum {{enum.name}}_enum {
+{%- for element in enum.elements %}
+    {{element.name}}
+    {%- if element.value %} = {{element.value}} {%- endif %}
+    {%- if not loop.last -%} , {%- endif -%}
+{%- endfor %}
+}
+{%- endmacro -%}
+
+{%- macro generate_enum_struct (enum) -%}
+    {## 
+     #  Generates thrift struct with enum in them 
+     #  from parsed enum.
+     #
+     #  Input:
+     #      enum -- parsed enum
+     #
+     #      Each enum has:
+     #          name -- name of enum
+     #          elements -- list of elements
+     #
+     #          Each element has:
+     #              name -- name of the element
+     #              value -- value of the element
+     #
+     #  Output:
+     #      Struct with enum in them implemented in thrift.
+     #
+     #  Example:
+     #      >>> enum = [{'elements': [{'name': 'MAX_DEBUG_NEVER', 'value': '0'}
+     #      , {'name': 'MAX_DEBUG_ON_ERROR', 'value': '1'}, {'name': 'MAX_DEBUG
+     #      _ALWAYS', 'value': '2'}], 'name': 'max_debug_mode_t'}]
+     #      >>> t = Template('{{generate_enum_struct(enum)}}')
+     #      >>> print t.render(enum = enum)
+     #      struct max_debug_mode_t_struct
+     #          1: max_debug_mode_t_enum type; 
+     #      }
+     #      
+    ##}
+struct {{enum.name}}_struct {
+    1: {{enum.name}}_enum type;
+}
+{%- endmacro -%}
+
+{%- macro generate_typedef (typedef) -%}
+    {##   
+     #  Generates thrift typedef parsed typedef.
+     #
+     #  Input:
+     #      typedef -- parsed typedef.
+     #
+     #  Output:
+     #      Typedef implemented in thrift.
+     #
+     #  Example:
+     #      >>> typedef = [{'type': 'long unsigned int', 'name': 'size_t'}]
+     #      >>> t = Template('{{generate_typedef(typedef)}}')
+     #      >>> print t.render(typedef = typedef)
+     #      typedef i64 size_t_type
+     # 
+    ##}
+{%- if 'union' not in typedef.type 
+    and 'struct' not in typedef.type 
+    and typedef.type != 'void'
+    and typedef.type not in data.structs|map(attribute = 'name') %}
+typedef {{thrift_type(typedef.type, typedef.array)}} {{typedef.name}}_type
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro generate_struct (struct) -%}
+   {## 
+     #  Generates thrift structure from parsed structure.
+     #
+     #  Input:
+     #      struct -- parsed structures
+     #
+     #      Each structure has:
+     #          name -- name of structure
+     #          arguments -- list of arguments
+     #
+     #          Each argument has:
+     #              type -- type of the argument
+     #              name -- name of the argument
+     #
+     #  Output:
+     #      Structure implemented in thrift.
+     #
+     #  Example:
+     #      >>> struct = [{'name': 'max_event_atomic_t', 'argument': [{'type': 
+     #      'uint32_t', 'name': 'event_id'}]}]
+     #      >>> t = Template('{{generate_struct(struct)}}')
+     #      >>> print t.render(struct = struct)
+     #      struct max_event_atomic_t_struct { 
+     #          1: i32 event_id; 
+     #      }
+     #      
+    ##}
+{%- set counter = 1 -%}
+struct {{valid_struct_name(struct.name)}}_struct {
+{%- for argument in struct.arguments %}
+    {{counter}}: {{thrift_type(argument.type, argument.array)}} {{valid_argument_name(argument.name)}};
+    {%- set counter = counter + 1 -%}
+{%- endfor %}
+}
+{%- endmacro -%}
+
+{%- macro generate_function (function) -%}
+    {## 
+     #  Generates thrift functions from list of parsed functions.
+     #
+     #  Input:
+     #      functions -- list of functions
+     #
+     #      Each function has:
+     #          name -- name of function
+     #          type -- type of function
+     #          arguments -- list of arguments
+     #
+     #          Each argument has:
+     #              type -- type of the argument
+     #              name -- name of the argument
+     #
+     #  Output:
+     #      Functions implemented in thrift.
+     #
+     #  Example:
+     #      >>> functions = [{'type': 'max_actarray_t*', 'name': 'max_actarray_
+     #      init', 'arguments': [{'type': 'max_file_t*', 'name': 'maxfile'}, {'
+     #      type': 'int', 'name': 'nb_actions'}]}]
+     #      >>> t = Template('{{generate_functions(functions)}}')
+     #      >>> print t.render(functions = functions)
+     #          remote_ptr max_actarray_init( 
+     #              1: remote_ptr maxfile,
+     #              2: i32 nb_actions
+     #          )
+     #      
+    ##}
+{%- set counter = 1 -%}
+
+{{thrift_type(function.type, function.array)}} {{function.name}}(
+{%- for argument in function.arguments %}
+    {{counter}}: {{thrift_type(argument.type, argument.array)}} 
+                 {%- if argument.name %} {{valid_argument_name(argument.name)}}
+                 {%- else %} argument_{{counter}} {%- endif %}
+                 {%- if not loop.last -%} , {%- endif -%}
+    {%- set counter = counter + 1 -%}
+{%- endfor -%} ),
+
+{% endmacro -%}
+
+{%- macro generate_malloc (type) %}
+    {## 
+     #  Generates malloc funcion
+     #
+     #  Input:
+     #      type -- c type
+     #
+     #  Output:
+     #      Malloc type function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_malloc(type)}}')
+     #      >>> print t.render(type = 'int32_t')
+     #          remote_ptr malloc_int32_t(
+     #              1: i64 size),
+     #    
+    ##}
+    remote_ptr malloc_{{type}}(
+        1: i64 size),
+{% endmacro -%}
+
+{%- macro generate_send_data (type) %}
+    {## 
+     #  Generates send_data funcion
+     #
+     #  Input:
+     #      type -- c type
+     #
+     #  Output:
+     #      Send data of type type function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_send_data(type)}}')
+     #      >>> print t.render(type = 'int32_t')
+     #          void send_data_int32_t (
+     #              1: remote_ptr address, 
+     #              2: list<int32_t> data),
+     #    
+    ##}
+    void send_data_{{type}} (
+        1: remote_ptr address, 
+        2: list<{{thrift_type(type)}}> data),
+{% endmacro -%}
+
+{%- macro generate_receive_data (type) %}
+    {## 
+     #  Generates recive_data funcion
+     #
+     #  Input:
+     #      type -- c type
+     #
+     #  Output:
+     #      Recive data of type type function.
+     #
+     #  Example:
+     #      >>> t = Template('{{generate_receive_data(type)}}')
+     #      >>> print t.render(type = 'int32_t')
+     #          list<int32_t> receive_data_int32_t (
+     #              1: remote_ptr address,
+     #              2: i64 size),
+     #    
+    ##}
+    list<{{thrift_type(type)}}> receive_data_{{type}} (
+        1: remote_ptr address,
+        2: i64 size),
+{% endmacro -%}
+
+{%- macro generate_send_struct (struct) %}
+    {## 
+     #  Generates send_struct funcion
+     #
+     #  Input:
+     #      struct -- parsed strut
+     #
+     #      Each struct has:
+     #          name -- name of structure
+     #          arguments -- list of arguments
+     #
+     #          Each argument has:
+     #              type -- type of the argument
+     #              name -- name of the argument
+     #
+     #  Output:
+     #      Send struct function.
+     #
+     #  Example:
+     #      >>> structs = [{'name': 'max_event_atomic_t', 'argument': [{'type':
+     #      'uint32_t', 'name': 'event_id'}]}]
+     #      >>> t = Template('{{generate_send_struct(struct)}}')
+     #      >>> print t.render(struct = struct)
+     #              remote_ptr send_max_event_atomic_t (
+     #                  1: max_event_atomic_t_struct data),
+     #    
+    ##}
+    remote_ptr send_{{valid_struct_name(struct.name)}} (
+        1: {{valid_struct_name(struct.name)}}_struct _struct_),
+{% endmacro -%}
+
+namespace cpp com.maxeler.{{maxfile_name}}
+namespace py com.maxeler.{{maxfile_name}}
+namespace java com.maxeler.{{maxfile_name}}
+namespace rb com.maxeler.{{maxfile_name}}
+namespace perl com.maxeler.{{maxfile_name}}
+namespace go com.maxeler.{{maxfile_name}}
+namespace csharp com.maxeler.{{maxfile_name}}
+namespace hs com.maxeler.{{maxfile_name}}
+
+typedef i64 remote_ptr
+typedef i64 remote_ptrTODO
+
+{% for typedef in data.typedefs -%}
+    {{-generate_typedef(typedef)}}
+{%- endfor %}
+
+typedef remote_ptr __timezone_ptr_t_type {# TODO #}
+
+{% for enum in data.enums -%}
+    {{-generate_enum(enum)}}
+    {{-generate_enum_struct(enum)}}
+{%- endfor %}
+
+{% for struct in data.structs -%}
+    {{-generate_struct(struct)}}
+{% endfor %}
+
+service {{maxfile_name}}Service
+{
+    {% for struct in data.structs -%}
+        {%- if 'max_' in struct.name
+            or maxfile_name in struct.name
+            or 'struct ' in struct.name -%}
+            {{-generate_send_struct(struct = struct)-}}
+        {%- endif -%}
+    {%- endfor %}
+
+    {% for function in data.functions -%}
+        {%- if function.name[0] != '_' -%}
+            {{-generate_function(function)|indent(4)}}
+        {%- endif -%}
+    {% endfor %}
+
+    {% set types = ['int8_t', 'int16_t', 'int32_t', 'int64_t', 'double'] -%}
+    {%- for type in types -%}
+        {{-generate_malloc(type = type)-}}
+        {{-generate_send_data(type = type)-}}
+        {{-generate_receive_data(type = type)-}}
+    {%- endfor %}
+
+    remote_ptr malloc_float(
+        1: i64 size),
+
+    void send_data_float(
+        1: remote_ptr address,
+        2: list<double> data),
+
+    list<double> receive_data_float(
+        1: remote_ptr address,
+        2: i64 size)
+}
