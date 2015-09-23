@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 '''Correlaion example'''
+
 import sys
 import math
 import time
@@ -299,4 +300,5 @@ def test():
 
     check(correlations_dfe, correlations_cpu, num_timeseries, indices_step)
 
-test()
+if __name__ == '__main__':
+    test()

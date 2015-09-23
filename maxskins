@@ -2,21 +2,30 @@
 
 """
 Usage:
-  maxskins [-t <target>...] <maxfile> [-d <output_directory>]
+  maxskins [--cpp | --C++] [--py | --Python]  [--java | --Java]
+           [--rb | --Ruby] [--hs | --Haskell] [--csharp | --C#]
+           [--go | --Go]   [--erl | --Erlang] [--perl | --Perl]
+           [--cocoa | --Cocoa] [--delphi | --Delphi] 
+           <maxfile> [-d <output_directory>]
   maxskins -h | --help
   maxskins -v | --version
 
 Options:
-  -t <target>               Targets: Python (py),
-                                     Java (java),
-                                     C++ (cpp),
-                                     Ruby (rb),
-                                     Go (go),
-                                     C# (csharp),
-                                     Haskell (hs) [default: cpp]
+  --cocoa  --Cocoa          Cocoa wrapper
+  --cpp    --C++            C++ wrapper
+  --csharp --C#             C# wrapper
+  --delphi --Delphi         Delphi wrapper
+  --erl    --Erlang         Erlang wrapper
+  --go     --Go             Go wrapper
+  --hs     --Haskell        Haskell wrapper
+  --java   --Java           Java wrapper
+  --perl   --Perl           Perl wrapper
+  --py     --Python         Python wrapper
+  --rb     --Ruby           Ruby wrapper
+
   -d <output_directory>     Output directory [default: .]
   -h --help                 Show this message
-  -v --version              Show Maxskins version
+  -v --version              Show MaxSkins version
 """
 
 import os
@@ -26,7 +35,7 @@ from docopt import docopt
 from jinja2 import Template
 from sh     import sliccompile, thrift, mkdir, rm, cp, make, cpp
 
-from common import cd, check_target
+from common import cd
 from parse  import parse
 
 VERSION = '0.1.0'
@@ -54,14 +63,6 @@ def parse_input_arguments():
     """
     arguments = docopt(__doc__, version='maxskins ' + VERSION)
 
-    targets = arguments['-t']
-
-    for target in targets:
-        target = check_target(target)
-        if target == None:
-            print 'Wrong target!'
-            sys.exit(-1)
-
     maxfile = os.path.abspath(arguments['<maxfile>'])
     if os.path.isfile(maxfile) == False:
         print 'No such maxfile!'
@@ -72,6 +73,53 @@ def parse_input_arguments():
         sys.exit(-1)
 
     return arguments
+
+def parse_targets(arguments):
+    """
+    Makes a list of targets from arguments.
+
+    Input:
+        arguments - arguments from docopt
+
+    Output:
+       List of targets
+    """
+    targets = []
+
+    if arguments['--cpp'] or arguments['--C++']:
+        targets.append('cpp')
+
+    if arguments['--py'] or arguments['--Python']:
+        targets.append('py')
+
+    if arguments['--java'] or arguments['--Java']:
+        targets.append('java')
+
+    if arguments['--rb'] or arguments['--Ruby']:
+        targets.append('rb')
+
+    if arguments['--go'] or arguments['--Go']:
+        targets.append('go')
+
+    if arguments['--csharp'] or arguments['--C#']:
+        targets.append('csharp')
+
+    if arguments['--hs'] or arguments['--Haskell']:
+        targets.append('hs')
+
+    if arguments['--erl'] or arguments['--Erlang']:
+        targets.append('erl')
+
+    if arguments['--perl'] or arguments['--Perl']:
+        targets.append('perl')
+
+    if arguments['--cocoa'] or arguments['--Cocoa']:
+        targets.append('cocoa')
+
+    if arguments['--delphi'] or arguments['--Delphi']:
+        targets.append('delphi')
+
+    return targets
 
 def create_project_directories(output_dir, client_dir, server_dir,
                                scratch_dir, target_client_dirs):
@@ -94,15 +142,26 @@ def create_project_directories(output_dir, client_dir, server_dir,
     for target_client_dir in target_client_dirs:
         mkdir('-p', target_client_dir)
 
-def generate_heder_and_object(scratch_dir, maxfile):
+def generate_object_file(scratch_dir, maxfile):
     """
-    Generates header and slic object files using sliccompile.
+    Generates slic object files using sliccompile.
+
+    Input:
+        scratch_dir -- scratch directory
+        maxfile -- maxfile
     """
     with cd(scratch_dir):
-        print 'Creating SLiC object file.'
         sliccompile(maxfile)
 
-        print 'Creating header file.'
+def generate_header_file(scratch_dir, maxfile):
+    """
+    Generates header files using sliccompile.
+
+    Input:
+        scratch_dir -- scratch directory
+        maxfile -- maxfile
+    """
+    with cd(scratch_dir):
         sliccompile('-t', 'cheader', maxfile)
 
 def process_header_file(scratch_dir, maxfile_name):
@@ -117,12 +176,12 @@ def process_header_file(scratch_dir, maxfile_name):
         Data dictionary.
     """
     header = maxfile_name + '.h'
-    preprocessed_heder = maxfile_name + '.i'
+    preprocessed_header = maxfile_name + '.i'
 
     with cd(scratch_dir):
-        cpp('-I', SLIC_DIR, header, preprocessed_heder)
+        cpp('-I', SLIC_DIR, header, preprocessed_header)
 
-        with open(preprocessed_heder, 'r') as infile:
+        with open(preprocessed_header, 'r') as infile:
             code = infile.read()
 
     return parse(code)
@@ -187,7 +246,7 @@ def make_server_binary(scratch_dir, server_dir, maxfile_name):
 if __name__ == '__main__':
     ARGUMENTS = parse_input_arguments()
 
-    TARGETS = ARGUMENTS['-t']
+    TARGETS = parse_targets(ARGUMENTS)
     MAXFILE = os.path.abspath(ARGUMENTS['<maxfile>'])
     OUTPUT_DIR = os.path.abspath(ARGUMENTS['-d'])
 
@@ -202,30 +261,34 @@ if __name__ == '__main__':
     TARGET_CLIENT_DIRS = [os.path.join(CLIENT_DIR, TARGET)
                           for TARGET in TARGETS]
 
-    print 'Creating project directories.'
+    print 'Step 1 out of 9: Creating project directories.'
     create_project_directories(OUTPUT_DIR, CLIENT_DIR, SERVER_DIR,
                                SCRATCH_DIR, TARGET_CLIENT_DIRS)
 
-    generate_heder_and_object(SCRATCH_DIR, MAXFILE)
+    print 'Step 2 out of 9: Creating SLiC object file.'
+    generate_header_file(SCRATCH_DIR, MAXFILE)
 
-    print 'Processing heder file.'
+    print 'Step 3 out of 9: Creating header file.'
+    generate_object_file(SCRATCH_DIR, MAXFILE)
+
+    print 'Step 4 out of 9: Processing header file.'
     DATA = process_header_file(SCRATCH_DIR, MAXFILE_NAME)
 
-    print 'Creating .thrift file.'
+    print 'Step 5 out of 9: Creating .thrift file.'
     reneder_template(DATA, THRIFT_PATH, THRIFTFILE_NAME,
                      MAXFILE_NAME, SCRATCH_DIR)
 
-    print 'Creating server file.'
+    print 'Step 6 out of 9: Creating server file.'
     reneder_template(DATA, SERVER_PATH, SERVERFILE_NAME,
                      MAXFILE_NAME, SCRATCH_DIR)
 
-    print 'Creating server Makefile.'
+    print 'Step 7 out of 9: Creating server Makefile.'
     reneder_template(DATA, MAKEFILE_PATH, MAKEFILE_NAME,
                      MAXFILE_NAME, SCRATCH_DIR)
 
-    print 'Creating service files.'
+    print 'Step 8 out of 9: Creating service files.'
     generate_thrift_files(SCRATCH_DIR, THRIFTFILE_NAME,
                           TARGET_CLIENT_DIRS, TARGETS)
 
-    print 'Creating server binary.'
+    print 'Step 9 out of 9: Creating server binary.'
     make_server_binary(SCRATCH_DIR, SERVER_DIR, MAXFILE_NAME)

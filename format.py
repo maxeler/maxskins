@@ -1,9 +1,7 @@
 """
 Functions used for formating header file.
 """
-import re
-
-def remove_duplicates_from_list(seq):
+def remove_duplicates(seq):
     """
     Removes duplicates from a list.
 
@@ -101,14 +99,14 @@ def prepare_for_parsing(code):
     # remove excess spaces
     code = ' '.join(code.split())
 
-    code = transform(code, [# all lines end with ;
-                            ['; ', ';\n'],
+    code = transform(code, [['; ', ';\n'], # all lines end with ;
                             # move * next to the type int *a --> int* a
                             [' ***', '*** '], [' **', '** '], [' *', '* '],
                             # remove spaces around comma and parentheses
                             [', ', ','], [' ,', ','], ['; ', ';'], [' ;', ';'],
                             ['( ', '('], [' (', '('], [') ', ')'], [' )', ')'],
                             ['{ ', '{'], [' {', '{'], ['} ', '}'], [' }', '}'],
+                            ['= ', '='], [' =', '='], [' [', '['],
                             # remove extern, __restrict, __signed__,
                             # __extension__ __inline and volatile
                             ['extern ', ''], ['__restrict', ''],
@@ -117,7 +115,7 @@ def prepare_for_parsing(code):
                             # remove void if it's only arguments
                             ['(void)', '()'],
                             # remove double spaces, and spaces before [
-                            ['  ',' '], [' [', '['], ['[]', '[ ]']])
+                            ['  ', ' '], ['[]', '[ ]']])
 
     # puts structures in one line
     # and removes __asm__((...)), __attribute__((...)) and __WAIT_STATUS((...))

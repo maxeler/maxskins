@@ -20,6 +20,9 @@
     {%- elif name == '__fds_bits' -%}
         fds_bits
     {%- else -%}
+        {%- if '_' == name[0] -%}
+            {%- set name = 'arg' + name -%}
+        {%- endif -%}
         {{name}}
     {%- endif -%}
 {%- endmacro -%}

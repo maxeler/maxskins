@@ -12,47 +12,52 @@ using namespace apache::thrift::transport;
 
 using namespace ::com::maxeler::Simple;
 
-
-int check(double *dataOut, double *expected, int size)
-{
+int check(std::vector<double> dataOutDFE, std::vector<double> dataOutCPU, int size) {
 	int status = 0;
-	for(int i=0; i < size; i++)
-	{
-		if(dataOut[i] != expected[i]) {
+
+	for(int i=0; i < size; i++) {
+		if(dataOutDFE[i] != dataOutCPU[i]) {
 			fprintf(stderr, "Output data @ %d = %1.8g (expected %1.8g)\n",
-				i, dataOut[i], expected[i]);
+				i, dataOutDFE[i], dataOutCPU[i]);
 			status = 1;
 		}
 	}
+
 	return status;
 }
 
-void SimpleCPU(int size, double *dataIn, double *dataOut)
-{
+std::vector<double> SimpleCPU(int size, std::vector<double> dataIn) {
+	std::vector<double> dataOut;
+	dataOut.resize(size);
+
 	for (int i=0 ; i<size ; i++) {
 		dataOut[i] = dataIn[i]*dataIn[i] + dataIn[i];
 	}
+
+	return dataOut;
 }
 
-int main()
-{
+std::vector<double> SimpleDFE(int size, std::vector<double> dataIn) {
+	// Make socket
 	boost::shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
+
+	// Buffering is critical. Raw sockets are very slow
 	boost::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
+
+	// Wrap in a protocol
 	boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
+
+	// Create a client to use the protocol encoder
 	SimpleServiceClient client(protocol);
 
+	int sizeBytes = size * sizeof(float);
+
+	std::vector<double> dataOut;
+	dataOut.resize(size);
+
 	try {
-      
-	        transport->open();
-
-		std::vector<double> dataIn;
-		const int size = 1024;
-		int sizeBytes = size * sizeof(float);
-
-		// Generate input data
-		for(int i = 0; i < size; i++) {
-			dataIn.push_back(i + 1);
-		}
+		// Connect!
+		transport->open();
 
 		// Initialize maxfile
 		remote_ptr maxfile = client.Simple_init();
@@ -80,8 +85,6 @@ int main()
 		client.max_unload(engine);
 
 		// Get output stream from server
-		std::vector<double> dataOut;
-		dataOut.resize(size);
 	        client.receive_data_float(dataOut, address_dataOut, size);
 
 		// Free allocated memory for streams on server
@@ -91,22 +94,36 @@ int main()
 		// Free allocated maxfile data
 		client.Simple_free();
 
-		// Checking results
-		std::vector<double> expected;
-		expected.resize(size);	
-		SimpleCPU(size, dataIn.data(), expected.data());
-
-		int status = check(dataOut.data(), expected.data(), size);
-
-		if (status)
-			cout << "Test failed." << endl;
-		else
-			cout << "Test passed!" << endl;
-
+		// Close!
 		transport->close();
     
 	} catch (TException& tx) {
 		cout << "ERROR: " << tx.what() << endl;
+	}
+
+	return dataOut;
+}
+
+int main() {
+	// Input
+	const int size = 1024;
+	std::vector<double> dataIn;
+
+	for(int i = 0; i < size; i++) {
+		dataIn.push_back(i + 1);
+	}
+
+	// CPU Output
+	std::vector<double> dataOutCPU = SimpleCPU(size, dataIn);
+
+	// DFE Output
+        std::vector<double> dataOutDFE = SimpleDFE(size, dataIn);
+
+	// Checking results
+	if (check(dataOutDFE, dataOutCPU, size)) {
+		cout << "Test failed." << endl;
+	} else {
+		cout << "Test passed!" << endl;
 	}
 
 	return 0;

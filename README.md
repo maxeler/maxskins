@@ -3,6 +3,7 @@
 **DFEs can now be taught to speak almost any language.**
 
 MaxSkins generates Appache Thrift wrappers for SLiC interfaces (basic static, advanced static and dynamic) for various programming languages.
+MaxSkins enable easy and seamless access to the DFEs from C++, Java, Python, Ruby, Erlang, Perl, Haskell, C#, Cocoa and Delphi.
 
 # Installation
 
@@ -20,7 +21,7 @@ pip install -r requirements.txt
 ## Step 2. Add maxskins utility to the PATH
 
 ```bash
-PATH = <maxskins_dir>:$PATH
+export PATH=<maxskins_dir>:$PATH
 ```
 
 # Quick Start
@@ -47,7 +48,7 @@ docker build -t maxskins .
 docker run -ti --rm maxskins /bin/bash
 ```
     
-### Command to run shell with directory mounted from the host
+### Command to run bash shell with directory mounted from the host
 
 ```bash
 docker run -ti --rm -v <path_of_host_dir>:<path_of_docker_dir> maxskins /bin/bash
@@ -55,17 +56,34 @@ docker run -ti --rm -v <path_of_host_dir>:<path_of_docker_dir> maxskins /bin/bas
 
 Find more about volumes at <https://docs.docker.com/userguide/dockervolumes>.
 
+# Usage
+
 ```bash
 Usage:
-    maxskins [-t <target>] <maxfile> [-d <output_directory>]
-    maxskins -h | --help
-    maxskins -v | --version
-    
+  maxskins [--cpp | --C++] [--py | --Python]  [--java | --Java]
+           [--rb | --Ruby] [--hs | --Haskell] [--csharp | --C#]
+           [--go | --Go]   [--erl | --Erlang] [--perl | --Perl]
+           [--cocoa | --Cocoa] [--delphi | --Delphi] 
+           <maxfile> [-d <output_directory>]
+  maxskins -h | --help
+  maxskins -v | --version
+
 Options:
-    -t <target>             Targets: Python (py), Java (java), C++ (cpp), Ruby (rb), Go (go), C# (csharp), Haskell (hs) [default: cpp] 
-    -d <output_directory>   Output directory [default = .]
-    -h --help               Show this message
-    -v --version            Show Maxskins version
+  --cocoa  --Cocoa          Cocoa wrapper
+  --cpp    --C++            C++ wrapper
+  --csharp --C#             C# wrapper
+  --delphi --Delphi         Delphi wrapper
+  --erl    --Erlang         Erlang wrapper
+  --go     --Go             Go wrapper
+  --hs     --Haskell        Haskell wrapper
+  --java   --Java           Java wrapper
+  --perl   --Perl           Perl wrapper
+  --py     --Python         Python wrapper
+  --rb     --Ruby           Ruby wrapper
+
+  -d <output_directory>     Output directory [default: .]
+  -h --help                 Show this message
+  -v --version              Show MaxSkins version
 ```
 
 ## Examples

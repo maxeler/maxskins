@@ -11,7 +11,7 @@ Usage:
     function prepare_for_parsing(code)
     has to be called to pre-process the code first.
 """
-from format import transform, prepare_for_parsing, remove_duplicates_from_list
+from format import prepare_for_parsing, remove_duplicates
 
 def parse_enums(code):
     """
@@ -70,8 +70,8 @@ def parse_enums(code):
             {'name': 'MAX_NET_CONNECTION_QSFP_MID_10G_PORT2'}
         """
         if '=' in element:
-            return {'name':  element[ : element.find('=') - 1],
-                    'value': element[element.find('=') + 2 : ]}
+            return {'name':  element[ : element.find('=')],
+                    'value': element[element.find('=') + 1 : ]}
         else:
             return {'name': element}
 
@@ -130,7 +130,7 @@ def parse_functions(code):
         actarray_t* mixed_actarray_init(file_t** files,int nb_actions);
         typedef enum mode {NEVER = 0,ALWAYS = 2}mode_t;
         >>> print parse_functions(code)
-        [{'type': 'actarray_t*', 'name': 'actarray_init', 'arguments': 
+        [{'type': 'actarray_t*', 'name': 'actarray_init', 'arguments':
         [{'type': 'file_t*', 'name': 'file'}, {'type': 'int', 'name': '
         nb_actions'}]}, {'type': 'actarray_t*', 'name': 'mixed_actarray
         _init', 'arguments': [{'type': 'file_t**', 'name': 'files'}, {'
@@ -172,7 +172,7 @@ def parse_functions(code):
                 if argument != '']
 
     # remove same lines from code
-    lines = remove_duplicates_from_list(code.splitlines())
+    lines = remove_duplicates(code.splitlines())
     return [{'type': line[ : line[ : line.find('(')].rfind(' ')],
              'name': line[line[ : line.find('(')].rfind(' ') + 1
                           : line.find('(')],
@@ -411,7 +411,7 @@ def parse(code):
         X_DEBUG_NEVER', 'value': '0'}, {'name': 'MAX_DEBUG_ON_ERROR', '
         value': '1'}, {'name': 'MAX_DEBUG_ALWAYS', 'value': '2'}], 'nam
         e': 'max_debug_mode_t'}], 'structs': [{'name': 'max_event_atomi
-        c_t', 'argument': [{'type': 'uint32_t', 'name': 'event_id'}]}, 
+        c_t', 'argument': [{'type': 'uint32_t', 'name': 'event_id'}]},
         {'name': 'max_event_startstop_t', 'argument': [{'type': 'uint32
         _t', 'name': 'event_id'}]}], 'typedefs': [{'type' : 'unsigned c
         har', 'name' : 'u_int8'}]}

@@ -1,106 +1,113 @@
 #!/usr/bin/env python
+"""Simple example data_out[n] = data_in[n] * data_in[n] + data_in[n]"""
 
-import sys, glob
-import random
+import sys
 sys.path.append('../gen-py')
 
 from com.maxeler.Simple import SimpleService
-from com.maxeler.Simple.ttypes import *
 
 from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-def check(dataOut, expected, size):
-	status = 0;
-	for i in range(0, size):
-		if dataOut[i] != expected[i]:
-			print "dataOut ="
-			print dataOut[i]
-			print "epected ="
-			print epected[i]
-			status = 1
-	return status
+def check(data_out_dfe, data_out_cpu, size):
+    """Check if data_out is same as expected."""
+    status = 0
+    for i in range(size):
+        if data_out_dfe[i] != data_out_cpu[i]:
+            print str(data_out_dfe[i]) + " != " + str(data_out_cpu[i])
+            status = 1
+    return status
 
-def SimpleCPU(size, dataIn, dataOut):
-	for i in range(0, size):
-		dataOut.append(dataIn[i] * dataIn[i] + dataIn[i])
+def simple_cpu(size, data_in):
+    """Simple CPU implementation."""
+    return [data_in[i] * data_in[i] + data_in[i] for i in range(size)]
 
-try:
+def simple_dfe(size, data_in):
+    """Simple DFE implementation."""
+    try:
+        # Make socket
+        transport = TSocket.TSocket('localhost', 9090)
 
-	# Make socket
-	transport = TSocket.TSocket('localhost', 9090)
+        # Buffering is critical. Raw sockets are very slow
+        transport = TTransport.TBufferedTransport(transport)
 
-	# Buffering is critical. Raw sockets are very slow
-	transport = TTransport.TBufferedTransport(transport)
+        # Wrap in a protocol
+        protocol = TBinaryProtocol.TBinaryProtocol(transport)
 
-	# Wrap in a protocol
-	protocol = TBinaryProtocol.TBinaryProtocol(transport)
+        # Create a client to use the protocol encoder
+        client = SimpleService.Client(protocol)
 
-	# Create a client to use the protocol encoder
-	client = SimpleService.Client(protocol)
+        # Connect!
+        transport.open()
 
-	# Connect!
-	transport.open()
+        size_bytes = size * 4
 
-	# Scalar inputs 
-	size = 384
-	sizeBytes = size * 4
+        # Initialize maxfile
+        max_file = client.Simple_init()
 
-	# Generate two random vectors
-	dataIn = []
-	for i in range(0, size):
-		dataIn.append(i + 1);
+        # Load DFE
+        max_engine = client.max_load(max_file, '*')
 
-	# Initialize maxfile
-	max_file = client.Simple_init()
+        # Allocate and send input streams to server
+        address_data_in = client.malloc_float(size)
+        client.send_data_float(address_data_in, data_in)
 
-	# Load DFE
-	max_engine = client.max_load (max_file, '*')	
+        # Allocate memory for output stream on server
+        address_data_out = client.malloc_float(size)
 
-	# Allocate and send input streams to server
-	address_dataIn = client.malloc_float(size)
-	client.send_data_float(address_dataIn, dataIn)
+        print "Running DFE."
 
-	# Allocate memory for output stream on server
-	address_dataOut = client.malloc_float(size)
+        actions = client.max_actions_init(max_file, "default")
+        client.max_set_param_uint64t(actions, "N", size)
+        client.max_queue_input(actions, "x", address_data_in, size_bytes)
+        client.max_queue_output(actions, "y", address_data_out, size_bytes)
 
-	print "Running DFE.";
+        client.max_run(max_engine, actions)
 
-	actions = client.max_actions_init(max_file, "default");
-	client.max_set_param_uint64t(actions, "N", size);
-	client.max_queue_input(actions, "x", address_dataIn, sizeBytes);
-	client.max_queue_output(actions, "y", address_dataOut, sizeBytes);
+        # Unload DFE
+        client.max_unload(max_engine)
 
-	client.max_run(max_engine, actions);
+        # Get output stream from server
+        data_out = client.receive_data_float(address_data_out, size)
 
-	# Unload DFE
-	client.max_unload(max_engine)
+        # Free allocated memory for streams on server
+        client.free(address_data_in)
+        client.free(address_data_out)
 
-	# Get output stream from server
-	dataOut = client.receive_data_float(address_dataOut, size)
+        # Free allocated maxfile data
+        client.Simple_free()
 
-	# Free allocated memory for streams on server
-	client.free(address_dataIn)
-	client.free(address_dataOut)
+        # Close!
+        transport.close()
 
-	# Free allocated maxfile data
-	client.Simple_free()
+    except Thrift.TException, thrift_exceptiion:
+        print '%s' % (thrift_exceptiion.message)
 
-	# Checking results
-	expected = []
-	SimpleCPU(size, dataIn, expected);
+    return data_out
 
-	status = check(dataOut, expected, size);
+def test():
+    '''
+    Calls SimpleDFE and SimpleCPU
+    and checks if they return the same result.
+    '''
+    # Input
+    size = 384
+    data_in = [i + 1 for i in range(size)]
 
-	if status:
-		print "Test failed."
-	else:
-		print "Test passed!"
+    # DFE Output
+    data_out_dfe = simple_dfe(size, data_in)
 
-	# Close!
-	transport.close()
+    # CPU Output
+    data_out_cpu = simple_cpu(size, data_in)
 
-except Thrift.TException, tx:
-	print '%s' % (tx.message)
+    # Checking results
+    if check(data_out_dfe, data_out_cpu, size):
+        print "Test failed."
+    else:
+        print "Test passed!"
+
+if __name__ == '__main__':
+    test()
+

@@ -5,3 +5,18 @@
 # and thus existing member attributes cannot be deduced by static analysis
 ignored-modules=sh
 
+[REPORTS]
+
+# Set the output format. Available formats are text, parseable, colorized, msvs
+# (visual studio) and html. You can also give a reporter class, eg
+# mypackage.mymodule.MyReporterClass.
+output-format=colorized
+
+[DESIGN]
+
+# Maximum number of public methods for a class (see R0904).
+max-public-methods=100
+
+[MESSAGES CONTROL]
+
+disable=F0401

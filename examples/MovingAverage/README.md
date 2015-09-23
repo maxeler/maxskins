@@ -24,24 +24,24 @@ These environment variables need to be exported so this example can be executed:
 
 Create skin from **examples/MovingAverage** directory with:
 
-    maxskins -t py MovingAverage.max
+    maxskins --py MovingAverage.max
 
 ### Create skin for C++
 
 Create skin from **examples/MovingAverage** directory with:
 
-    maxskins -t cpp MovingAverage.max
+    maxskins --cpp MovingAverage.max
     
 ### Create skin for Ruby
 
 Create skin from **examples/MovingAverage** directory with:
 
-    maxskins -t rb MovingAverage.max
+    maxskins --rb MovingAverage.max
     
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory.    
 In the **client** directory there are Apache Thrift files necessary for client. 
 In the **server** directory there is a binary file which is used to start the server.   
-in the **.scratch** directory there are all files that are generated during the compiling process.  
+In the **.scratch** directory there are all files that are generated during the compiling process.  
 
 ### Start the server
 
