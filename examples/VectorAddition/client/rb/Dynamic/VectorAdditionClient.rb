@@ -10,7 +10,7 @@ def check(a, b, c, scalar, size)
     for i in 0..(size-1)
         if (c[i] != a[i] + b[i] + scalar)
             puts 'Test failed!'
-            exit -1
+            Kernel.exit(-1)
         end
     end
 
@@ -105,4 +105,5 @@ begin
 
 rescue Thrift::Exception => tx
     print 'Thrift::Exception: ', tx.message, "\n"
+    Kernel.exit(-1)
 end

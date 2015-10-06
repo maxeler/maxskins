@@ -126,8 +126,12 @@ std::vector<int32_t> LMemLoopbackDFE(int size, std::vector<int32_t> inA, std::ve
 		// Free allocated maxfile data
 		client.LMemLoopback_free();
 
+		// Close!
+		transport->close();
+
 	} catch (TException& tx) {
 		cout << "ERROR: " << tx.what() << endl;
+		exit(-1);
 	}
 
 	return outData;
@@ -152,6 +156,7 @@ int main() {
 	// Checking results
 	if (check(size, outData, inA, inB)) {
 		cout << "Test failed." << endl;
+		exit(-1);
 	} else {
 		cout << "Test passed!" << endl;
 	}

@@ -87,3 +87,4 @@ try:
 
 except Thrift.TException, tx:
     print '%s' % (tx.message)
+    sys.exit(-1)

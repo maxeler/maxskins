@@ -63,7 +63,7 @@ begin
     address_data_out = client.malloc_float(size)
 
     # Allocate memory for output stream on server
-    address_dataOut = client.malloc_i32(size)
+    address_dataOut = client.malloc_float(size)
 
     puts "Running DFE."
     actions = client.max_actions_init(max_file, "default");
@@ -98,6 +98,7 @@ begin
 
     if (status == 1)
         puts "Test failed."
+        Kernel.exit(-1)
     else
         puts "Test passed!"
     end
@@ -105,4 +106,5 @@ begin
 
 rescue Thrift::Exception => thrift_exception
     puts 'Thrift::Exception: ', thrift_exception.message, "\n"
+    Kernel.exit(-1)
 end

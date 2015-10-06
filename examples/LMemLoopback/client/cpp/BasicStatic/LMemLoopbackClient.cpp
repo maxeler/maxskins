@@ -83,8 +83,12 @@ std::vector<int32_t> LMemLoopbackDFE(int size, std::vector<int32_t> inA, std::ve
 		client.free(address_inB);
         	client.free(address_outData);
 
+		// Close!
+		transport->close();
+
 	} catch (TException& tx) {
 		cout << "ERROR: " << tx.what() << endl;
+		exit(-1);
 	}
 
 	return outData;
@@ -109,6 +113,7 @@ int main() {
 	// Checking results
 	if (check(size, outData, inA, inB)) {
 		cout << "Test failed." << endl;
+		exit(-1);
 	} else {
 		cout << "Test passed!" << endl;
 	}

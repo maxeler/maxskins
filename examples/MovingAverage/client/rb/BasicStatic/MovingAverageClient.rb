@@ -9,6 +9,7 @@ def check(dataIn, dataOut, size)
     for i in 1..(size-2)
         if ((dataOut[i] - ((dataIn[i - 1] + dataIn[i] + dataIn[i + 1]) / 3)).abs > 0.0001)
             puts "Test failed! #{dataOut[i]} != #{(dataIn[i - 1] + dataIn[i] + dataIn[i + 1]) / 3}"
+            Kernel.exit(-1)
             exit -1
         end
     end
@@ -69,4 +70,5 @@ begin
 
 rescue Thrift::Exception => tx
     print 'Thrift::Exception: ', tx.message, "\n"
+    Kernel.exit(-1)
 end

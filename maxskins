@@ -5,7 +5,7 @@ Usage:
   maxskins [--cpp | --C++] [--py | --Python]  [--java | --Java]
            [--rb | --Ruby] [--hs | --Haskell] [--csharp | --C#]
            [--go | --Go]   [--erl | --Erlang] [--perl | --Perl]
-           [--cocoa | --Cocoa] [--delphi | --Delphi] 
+           [--cocoa | --Cocoa] [--delphi | --Delphi] [--php | --PHP]
            <maxfile> [-d <output_directory>]
   maxskins -h | --help
   maxskins -v | --version
@@ -20,6 +20,7 @@ Options:
   --hs     --Haskell        Haskell wrapper
   --java   --Java           Java wrapper
   --perl   --Perl           Perl wrapper
+  --php    --PHP            PHP wrapper
   --py     --Python         Python wrapper
   --rb     --Ruby           Ruby wrapper
 
@@ -29,266 +30,185 @@ Options:
 """
 
 import os
+import subprocess
 import sys
 
-from docopt import docopt
-from jinja2 import Template
-from sh     import sliccompile, thrift, mkdir, rm, cp, make, cpp
+from docopt    import docopt
+from fabricate import run
 
-from common import cd
-from parse  import parse
+import common
 
-VERSION = '0.1.0'
+def short_language_targets(arguments):
+    """
+    Makes a list of short language targets from docopt arguments.
 
-MAXCOMPILER_DIR = os.environ.get('MAXCOMPILERDIR')
-if MAXCOMPILER_DIR:
-    SLIC_DIR = os.path.join(MAXCOMPILER_DIR, 'include/slic')
-else:
-    print 'MAXCOMPILERDIR is not set!'
-    sys.exit(-1)
+    Input:
+        Arguments dictionary containing:
+            --cocoa -- true if --cocoa was called, false otherwise
+            --Cocoa -- true if --Cocoa was called, false otherwise
+            --cpp -- true if --cpp was called, false otherwise
+            --C++ -- true if --C++ was called, false otherwise
+            ...
 
-MAXSKINS_DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
-TEMPLATE_DIR = os.path.join(MAXSKINS_DIR, 'templates')
+    Output:
+       List of targets.
+    """
+    language_targets = [('cocoa', 'Cocoa'), ('cpp', 'C++'), ('csharp', 'C#'),
+                        ('delphi', 'Delphi'), ('erl', 'Erlang'), ('go', 'Go'),
+                        ('hs', 'Haskell'), ('java', 'Java'), ('perl', 'Perl'),
+                        ('py', 'Python'), ('rb', 'Ruby'), ('php', 'PHP')]
 
-THRIFT_PATH = os.path.join(TEMPLATE_DIR, 'thrift.jinja')
-SERVER_PATH = os.path.join(TEMPLATE_DIR, 'server.jinja')
-MAKEFILE_PATH = os.path.join(TEMPLATE_DIR, 'make_server.jinja')
+
+    return [short_language_target
+            for (short_language_target, long_language_target)
+            in language_targets
+            if arguments['--%s' % (short_language_target)]
+            or arguments['--%s' % (long_language_target)]]
 
 def parse_input_arguments():
     """
-    Parse input arguments and options.
+    Parse input arguments using docopt,
+    and validate parsed arguments.
 
     Output:
-        Arguments dictionary.
+        Dictionary containing:
+            maxfile -- path to maxfile
+            maxfile_name -- name of maxfile
+            targets -- list of targets
+            dirs -- directories dictionary containing:
+                output -- output directory
+                client -- client directory
+                server -- server directory
+                scratch -- scratch directory
+                slic -- slic directory
+                lib -- maxcompiler lib directory
+                sim_lib -- maxeleros-sim lib directory
     """
-    arguments = docopt(__doc__, version='maxskins ' + VERSION)
+    maxcompiler_dir = os.environ.get('MAXCOMPILERDIR')
 
-    maxfile = os.path.abspath(arguments['<maxfile>'])
-    if os.path.isfile(maxfile) == False:
+    docopt_arguments = docopt(__doc__, version=common.VERSION)
+
+    maxfile = os.path.abspath(docopt_arguments['<maxfile>'])
+    output_dir = os.path.abspath(docopt_arguments['-d'])
+
+    if not maxcompiler_dir:
+        print 'Environmental variable MAXCOMPILERDIR is not set!'
+        sys.exit(-1)
+
+    if not os.path.isfile(maxfile):
         print 'No such maxfile!'
         sys.exit(-1)
 
-    if os.path.splitext(maxfile)[1] != '.max':
+    if common.get_file_extension(maxfile) != '.max':
         print 'Maxfile must have .max extension!'
         sys.exit(-1)
 
-    return arguments
+    return {'maxfile': maxfile,
+            'maxfile_name': common.get_file_name(maxfile),
+            'targets': short_language_targets(docopt_arguments),
+            'dirs': {'output': output_dir,
+                     'client': os.path.join(output_dir, 'client'),
+                     'server': os.path.join(output_dir, 'server'),
+                     'scratch': os.path.join(output_dir, '.scratch'),
+                     'slic': os.path.join(maxcompiler_dir, 'include/slic'),
+                     'lib': os.path.join(maxcompiler_dir, 'lib'),
+                     'sim_lib': os.path.join(maxcompiler_dir,
+                                             'lib/maxeleros-sim/lib')}}
 
-def parse_targets(arguments):
-    """
-    Makes a list of targets from arguments.
-
-    Input:
-        arguments - arguments from docopt
-
-    Output:
-       List of targets
-    """
-    targets = []
-
-    if arguments['--cpp'] or arguments['--C++']:
-        targets.append('cpp')
-
-    if arguments['--py'] or arguments['--Python']:
-        targets.append('py')
-
-    if arguments['--java'] or arguments['--Java']:
-        targets.append('java')
-
-    if arguments['--rb'] or arguments['--Ruby']:
-        targets.append('rb')
-
-    if arguments['--go'] or arguments['--Go']:
-        targets.append('go')
-
-    if arguments['--csharp'] or arguments['--C#']:
-        targets.append('csharp')
-
-    if arguments['--hs'] or arguments['--Haskell']:
-        targets.append('hs')
-
-    if arguments['--erl'] or arguments['--Erlang']:
-        targets.append('erl')
-
-    if arguments['--perl'] or arguments['--Perl']:
-        targets.append('perl')
-
-    if arguments['--cocoa'] or arguments['--Cocoa']:
-        targets.append('cocoa')
-
-    if arguments['--delphi'] or arguments['--Delphi']:
-        targets.append('delphi')
-
-    return targets
-
-def create_project_directories(output_dir, client_dir, server_dir,
-                               scratch_dir, target_client_dirs):
+def create_project_directories(dirs, targets):
     """
     Creates project directories.
 
     Input:
-        output_dir -- output directory
-        client_dir -- client directory
-        server_dir -- server directory
-        scratch_dir -- scratch directory
-        target_client_dirs -- target client directories
-    """
-    if output_dir != os.getcwd():
-        mkdir('-p', output_dir)
+        dirs -- directories dictionary containing:
+            output -- output directory
+            client -- client directory
+            server -- server directory
+            scratch -- scratch directory
 
-    mkdir('-p', client_dir)
-    mkdir('-p', server_dir)
-    mkdir('-p', scratch_dir)
-    for target_client_dir in target_client_dirs:
-        mkdir('-p', target_client_dir)
-
-def generate_object_file(scratch_dir, maxfile):
+        targets -- list of targets
     """
-    Generates slic object files using sliccompile.
+    for directory in dirs:
+        subprocess.call(['mkdir', '-p', dirs[directory]])
+
+    for target in targets:
+        target_dir = os.path.join(dirs['client'], target)
+        subprocess.call(['mkdir', '-p', target_dir])
+
+def generate_thrift_wrappers(maxfile_name, dirs, targets):
+    """
+    Generate wrappers for cpp and target languages using thrift.
 
     Input:
-        scratch_dir -- scratch directory
-        maxfile -- maxfile
+        maxfile_name -- name of maxfile
+
+        dirs -- directories dictionary containing:
+            client -- client directory
+            scratch -- scratch directory
+
+        targets -- list of targets
     """
-    with cd(scratch_dir):
-        sliccompile(maxfile)
-
-def generate_header_file(scratch_dir, maxfile):
-    """
-    Generates header files using sliccompile.
-
-    Input:
-        scratch_dir -- scratch directory
-        maxfile -- maxfile
-    """
-    with cd(scratch_dir):
-        sliccompile('-t', 'cheader', maxfile)
-
-def process_header_file(scratch_dir, maxfile_name):
-    """
-    Create data for templates.
-
-    Input:
-        scratch_dir -- scratch directory
-        maxfile_name -- maxfile name
-
-    Output:
-        Data dictionary.
-    """
-    header = maxfile_name + '.h'
-    preprocessed_header = maxfile_name + '.i'
-
-    with cd(scratch_dir):
-        cpp('-I', SLIC_DIR, header, preprocessed_header)
-
-        with open(preprocessed_header, 'r') as infile:
-            code = infile.read()
-
-    return parse(code)
-
-def reneder_template(data, path, name, maxfile_name, scratch_dir):
-    """
-    Renders template using data.
-
-    Input:
-        data -- data for template
-        path -- path to template
-        name -- name of rendered template
-        maxfile_name -- maxfile name
-        scratch_dir -- scratch directory
-    """
-    with open(path, 'r') as template_file:
-        template = Template(template_file.read())
-
-    with cd(scratch_dir):
-        with open(name, 'w') as rendered_file:
-            rendered_file.write(template.render(maxfile_name=maxfile_name,
-                                                data=data))
-
-def generate_thrift_files(scratch_dir, thrift_file_name,
-                          target_client_dirs, targets):
-    """
-    Generates cpp and target thrift files.
-
-    Input:
-        scratch_dir -- scratch directory
-        thrift_file_name -- name of thrift file
-        target_client_dirs -- target client directories
-        targets -- list of target languages
-    """
-    with cd(scratch_dir):
-        thrift('--gen', 'cpp', thrift_file_name)
+    with common.change_working_directory(dirs['scratch']):
+        run('thrift', '--gen', 'cpp', maxfile_name + '.thrift')
 
         for target in targets:
-            if target != 'cpp':
-                thrift('--gen', target, thrift_file_name)
+            run('thrift', '--gen', target, maxfile_name + '.thrift')
 
-            target_dir = 'gen-' + target
-            cp('-rf', target_dir, target_client_dirs[targets.index(target)])
+            target_dir = os.path.join(dirs['client'], target)
+            subprocess.call(['cp', '-rf', 'gen-' + target, target_dir])
 
-
-def make_server_binary(scratch_dir, server_dir, maxfile_name):
+def make_server_binary(maxfile_name, dirs):
     """
-    Make server executable and copy to server directory.
+    Makes server executable and copies it to the server directory.
 
     Input:
-        scratch_dir -- scratch directory
-        server_dir -- server directory
-        maxfile_name -- maxfile name
-    """
-    server = maxfile_name + '_server'
+        maxfile_name -- name of maxfile
 
-    with cd(scratch_dir):
-        make()
-        rm('-f', os.path.join(server_dir, server))
-        cp(server, server_dir)
+        dirs -- directories dictionary containing:
+            client -- client directory
+            scratch -- scratch directory
+    """
+    cpp_flags = ['-finstrument-functions', '-fopenmp', '-fPIC',
+                 '-I', dirs['slic'], '-I', 'gen-cpp']
+
+    ld_flags = ['-fopenmp', '-lresolv', '-lnsl', '-lthrift',
+                '-lslic', '-lmaxeleros', '-lpthread', '-lm', '-lrt',
+                '-L', '/lib', '-L', '/lib64',
+                '-L', dirs['lib'], '-L', dirs['sim_lib']]
+
+    sources = ['gen-cpp/%sService' % (maxfile_name),
+               'gen-cpp/%s_constants' % (maxfile_name),
+               'gen-cpp/%s_types' % (maxfile_name),
+               '%s_server' % (maxfile_name)]
+
+    slic_obj = 'slic_%s.o' % (maxfile_name)
+
+    with common.change_working_directory(dirs['scratch']):
+        for source in sources:
+            run('g++', cpp_flags, '-c', '-o', source + '.o', source + '.cpp')
+
+        run('g++', cpp_flags, '-o', maxfile_name + '_server',
+            [source + '.o' for source in sources], slic_obj, ld_flags)
+
+        subprocess.call(['cp', '-f', maxfile_name + '_server', dirs['server']])
 
 if __name__ == '__main__':
     ARGUMENTS = parse_input_arguments()
 
-    TARGETS = parse_targets(ARGUMENTS)
-    MAXFILE = os.path.abspath(ARGUMENTS['<maxfile>'])
-    OUTPUT_DIR = os.path.abspath(ARGUMENTS['-d'])
+    create_project_directories(ARGUMENTS['dirs'], ARGUMENTS['targets'])
 
-    MAXFILE_NAME = os.path.splitext(os.path.basename(MAXFILE))[0]
-    THRIFTFILE_NAME = MAXFILE_NAME + '.thrift'
-    SERVERFILE_NAME = MAXFILE_NAME + '_server.cpp'
-    MAKEFILE_NAME = 'Makefile'
+    with common.change_working_directory(ARGUMENTS['dirs']['scratch']):
+        # Create object file.
+        run('sliccompile', ARGUMENTS['maxfile'])
 
-    CLIENT_DIR = os.path.join(OUTPUT_DIR, 'client')
-    SERVER_DIR = os.path.join(OUTPUT_DIR, 'server')
-    SCRATCH_DIR = os.path.join(OUTPUT_DIR, '.scratch')
-    TARGET_CLIENT_DIRS = [os.path.join(CLIENT_DIR, TARGET)
-                          for TARGET in TARGETS]
+        # Create header file.
+        run('sliccompile', '-t', 'cheader', ARGUMENTS['maxfile'])
 
-    print 'Step 1 out of 9: Creating project directories.'
-    create_project_directories(OUTPUT_DIR, CLIENT_DIR, SERVER_DIR,
-                               SCRATCH_DIR, TARGET_CLIENT_DIRS)
+        # Render Thrift IDL file and server C++ implementation.
+        run('h2thrift', '-I', ARGUMENTS['dirs']['slic'],
+            ARGUMENTS['maxfile_name'] + '.h')
 
-    print 'Step 2 out of 9: Creating SLiC object file.'
-    generate_header_file(SCRATCH_DIR, MAXFILE)
+    generate_thrift_wrappers(ARGUMENTS['maxfile_name'], ARGUMENTS['dirs'],
+                             ARGUMENTS['targets'])
 
-    print 'Step 3 out of 9: Creating header file.'
-    generate_object_file(SCRATCH_DIR, MAXFILE)
-
-    print 'Step 4 out of 9: Processing header file.'
-    DATA = process_header_file(SCRATCH_DIR, MAXFILE_NAME)
-
-    print 'Step 5 out of 9: Creating .thrift file.'
-    reneder_template(DATA, THRIFT_PATH, THRIFTFILE_NAME,
-                     MAXFILE_NAME, SCRATCH_DIR)
-
-    print 'Step 6 out of 9: Creating server file.'
-    reneder_template(DATA, SERVER_PATH, SERVERFILE_NAME,
-                     MAXFILE_NAME, SCRATCH_DIR)
-
-    print 'Step 7 out of 9: Creating server Makefile.'
-    reneder_template(DATA, MAKEFILE_PATH, MAKEFILE_NAME,
-                     MAXFILE_NAME, SCRATCH_DIR)
-
-    print 'Step 8 out of 9: Creating service files.'
-    generate_thrift_files(SCRATCH_DIR, THRIFTFILE_NAME,
-                          TARGET_CLIENT_DIRS, TARGETS)
-
-    print 'Step 9 out of 9: Creating server binary.'
-    make_server_binary(SCRATCH_DIR, SERVER_DIR, MAXFILE_NAME)
+    make_server_binary(ARGUMENTS['maxfile_name'], ARGUMENTS['dirs'])

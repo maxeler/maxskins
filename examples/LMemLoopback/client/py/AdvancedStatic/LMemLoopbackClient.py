@@ -96,6 +96,7 @@ def LMemLoopback_dfe(size, in_a, in_b):
 
     except Thrift.TException, thrift_exceptiion:
         print '%s' % (thrift_exceptiion.message)
+        sys.exit(-1)
 
     return out_data
 
@@ -116,6 +117,7 @@ def test():
     # Checking results
     if check(size, out_data, in_a, in_b):
         print "Test failed."
+        sys.exit(-1)
     else:
         print "Test passed!"
 

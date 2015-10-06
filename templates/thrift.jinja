@@ -6,23 +6,26 @@
      #      name -- name of argument
      #
      #  Output:
-     #      Valid name.
+     #      Valid argument name.
      #
      #  Example:
-     #      >>> name = 'data'
-     #      >>> t = Template('{{valid_argument_name(name)}}')
-     #      >>> print t.render(name = name)
+     #      >>> template = Template('{{valid_argument_name(name)}}')
+     #      >>> print template.render(name = 'val')
+     #      value
+     #      >>> print template.render(name = 'event')
+     #      event_arg
+     #      >>> print template.render(name = '__sigmask')
+     #      arg__sigmask
+     #      >>> print template.render(name = 'data')
      #      data
     ##}
-    {%- if name == 'val' -%} value
-    {%- elif name == '__sigmask' -%} 
-        ____sigmask
-    {%- elif name == '__fds_bits' -%}
-        fds_bits
+    {%- if name == 'val' -%}
+        value                                         {# val is used by thrift C++ #}
+    {%- elif name == 'event' -%} 
+        event_arg                                     {# event is a key word in csharp #}
+    {%- elif '_' == name[0] -%}
+        arg{{name}}                                   {# names can't start with _ in Ruby #}
     {%- else -%}
-        {%- if '_' == name[0] -%}
-            {%- set name = 'arg' + name -%}
-        {%- endif -%}
         {{name}}
     {%- endif -%}
 {%- endmacro -%}
@@ -32,19 +35,22 @@
      #  Transforms struct name to valid name.
      #
      #  Input:
-     #      name -- name of argument
+     #      name -- name of struct
      #
      #  Output:
-     #      Valid name.
+     #      Valid struct name.
      #
      #  Example:
-     #      >>> name = 'data'
-     #      >>> t = Template('{{valid_struct_valid_argument_name(name)}}')
-     #      >>> print t.render(name = name)
-     #      data
+     #      >>> template = Template('{{valid_struct_name(name)}}')
+     #      >>> print template.render(name = 'struct timeval')
+     #      struct_timeval
+     #      >>> print template.render(name = '_IO_FILE')
+     #      struct__IO_FILE
+     #      >>> print template.render(name = 'maxfile')
+     #      maxfile
     ##}
     {%- if '_' == name[0] -%}
-        {%- set name = 'struct' + name -%}
+        {%- set name = 'struct' + name -%}            {# names can't start with _ in Ruby #}
     {%- endif -%}
 
     {{name|replace('const ','')|replace(' ','_')}}
@@ -127,9 +133,13 @@
      #      Enum implemented in thrift.
      #
      #  Example:
-     #      >>> enum = [{'elements': [{'name': 'MAX_DEBUG_NEVER', 'value': '0'}
-     #      , {'name': 'MAX_DEBUG_ON_ERROR', 'value': '1'}, {'name': 'MAX_DEBUG
-     #      _ALWAYS', 'value': '2'}], 'name': 'max_debug_mode_t'}]
+     #      >>> enum = [{'elements': [{'name': 'MAX_DEBUG_NEVER',
+     #      ...                        'value': '0'},
+     #      ...                       {'name': 'MAX_DEBUG_ON_ERROR',
+     #      ...                        'value': '1'},
+     #      ...                       {'name': 'MAX_DEBUG_ALWAYS',
+     #      ...                        'value': '2'}],
+     #      ...          'name': 'max_debug_mode_t'}]
      #      >>> t = Template('{{generate_enum(enum)}}')
      #      >>> print t.render(enum = enum)
      #      enum max_debug_mode_t_enum { 
@@ -168,9 +178,13 @@ enum {{enum.name}}_enum {
      #      Struct with enum in them implemented in thrift.
      #
      #  Example:
-     #      >>> enum = [{'elements': [{'name': 'MAX_DEBUG_NEVER', 'value': '0'}
-     #      , {'name': 'MAX_DEBUG_ON_ERROR', 'value': '1'}, {'name': 'MAX_DEBUG
-     #      _ALWAYS', 'value': '2'}], 'name': 'max_debug_mode_t'}]
+     #      >>> enum = [{'elements': [{'name': 'MAX_DEBUG_NEVER',
+     #      ...                        'value': '0'},
+     #      ...                       {'name': 'MAX_DEBUG_ON_ERROR',
+     #      ...                        'value': '1'},
+     #      ...                       {'name': 'MAX_DEBUG_ALWAYS',
+     #      ...                        'value': '2'}],
+     #      ...          'name': 'max_debug_mode_t'}]
      #      >>> t = Template('{{generate_enum_struct(enum)}}')
      #      >>> print t.render(enum = enum)
      #      struct max_debug_mode_t_struct
@@ -227,8 +241,9 @@ typedef {{thrift_type(typedef.type, typedef.array)}} {{typedef.name}}_type
      #      Structure implemented in thrift.
      #
      #  Example:
-     #      >>> struct = [{'name': 'max_event_atomic_t', 'argument': [{'type': 
-     #      'uint32_t', 'name': 'event_id'}]}]
+     #      >>> struct = [{'name': 'max_event_atomic_t',
+     #      ...            'argument': [{'type': 'uint32_t',
+     #      ...                          'name': 'event_id'}]}]
      #      >>> t = Template('{{generate_struct(struct)}}')
      #      >>> print t.render(struct = struct)
      #      struct max_event_atomic_t_struct { 
@@ -265,9 +280,12 @@ struct {{valid_struct_name(struct.name)}}_struct {
      #      Functions implemented in thrift.
      #
      #  Example:
-     #      >>> functions = [{'type': 'max_actarray_t*', 'name': 'max_actarray_
-     #      init', 'arguments': [{'type': 'max_file_t*', 'name': 'maxfile'}, {'
-     #      type': 'int', 'name': 'nb_actions'}]}]
+     #      >>> functions = [{'type': 'max_actarray_t*',
+     #      ...               'name': 'max_actarray_init',
+     #      ...               'arguments': [{'type': 'max_file_t*', 
+     #      ...                              'name': 'maxfile'},
+     #      ...                             {'type': 'int',
+     #      ...                              'name': 'nb_actions'}]}]
      #      >>> t = Template('{{generate_functions(functions)}}')
      #      >>> print t.render(functions = functions)
      #          remote_ptr max_actarray_init( 
@@ -291,7 +309,7 @@ struct {{valid_struct_name(struct.name)}}_struct {
 
 {%- macro generate_malloc (type) %}
     {## 
-     #  Generates malloc funcion
+     #  Generates malloc function
      #
      #  Input:
      #      type -- c type
@@ -312,7 +330,7 @@ struct {{valid_struct_name(struct.name)}}_struct {
 
 {%- macro generate_send_data (type) %}
     {## 
-     #  Generates send_data funcion
+     #  Generates send_data function
      #
      #  Input:
      #      type -- c type
@@ -335,13 +353,13 @@ struct {{valid_struct_name(struct.name)}}_struct {
 
 {%- macro generate_receive_data (type) %}
     {## 
-     #  Generates recive_data funcion
+     #  Generates receive_data function
      #
      #  Input:
      #      type -- c type
      #
      #  Output:
-     #      Recive data of type type function.
+     #      Receive data of type type function.
      #
      #  Example:
      #      >>> t = Template('{{generate_receive_data(type)}}')
@@ -358,7 +376,7 @@ struct {{valid_struct_name(struct.name)}}_struct {
 
 {%- macro generate_send_struct (struct) %}
     {## 
-     #  Generates send_struct funcion
+     #  Generates send_struct function
      #
      #  Input:
      #      struct -- parsed strut
@@ -375,8 +393,9 @@ struct {{valid_struct_name(struct.name)}}_struct {
      #      Send struct function.
      #
      #  Example:
-     #      >>> structs = [{'name': 'max_event_atomic_t', 'argument': [{'type':
-     #      'uint32_t', 'name': 'event_id'}]}]
+     #      >>> structs = [{'name': 'max_event_atomic_t', 
+     #      ...             'argument': [{'type':'uint32_t',
+     #      ...                           'name': 'event_id'}]}]
      #      >>> t = Template('{{generate_send_struct(struct)}}')
      #      >>> print t.render(struct = struct)
      #              remote_ptr send_max_event_atomic_t (
@@ -387,14 +406,15 @@ struct {{valid_struct_name(struct.name)}}_struct {
         1: {{valid_struct_name(struct.name)}}_struct _struct_),
 {% endmacro -%}
 
-namespace cpp com.maxeler.{{maxfile_name}}
-namespace py com.maxeler.{{maxfile_name}}
-namespace java com.maxeler.{{maxfile_name}}
-namespace rb com.maxeler.{{maxfile_name}}
-namespace perl com.maxeler.{{maxfile_name}}
-namespace go com.maxeler.{{maxfile_name}}
-namespace csharp com.maxeler.{{maxfile_name}}
-namespace hs com.maxeler.{{maxfile_name}}
+namespace cpp com.maxeler.{{data.name}}
+namespace py com.maxeler.{{data.name}}
+namespace java com.maxeler.{{data.name}}
+namespace rb com.maxeler.{{data.name}}
+namespace perl com.maxeler.{{data.name}}
+namespace go com.maxeler.{{data.name}}
+namespace csharp com.maxeler.{{data.name}}
+namespace hs com.maxeler.{{data.name}}
+namespace php com.maxeler.{{data.name}}
 
 typedef i64 remote_ptr
 typedef i64 remote_ptrTODO
@@ -414,19 +434,21 @@ typedef remote_ptr __timezone_ptr_t_type {# TODO #}
     {{-generate_struct(struct)}}
 {% endfor %}
 
-service {{maxfile_name}}Service
+service {{data.name}}Service
 {
     {% for struct in data.structs -%}
         {%- if 'max_' in struct.name
-            or maxfile_name in struct.name
+            or data.name in struct.name
             or 'struct ' in struct.name -%}
             {{-generate_send_struct(struct = struct)-}}
         {%- endif -%}
     {%- endfor %}
 
     {% for function in data.functions -%}
-        {%- if function.name[0] != '_' -%}
+        {%- if function.name[0] != '_' -%}            {# names can't start with _ in Ruby #}
+        {%- if function.name != 'exit' -%}            {# exit is a key word in PHP #}
             {{-generate_function(function)|indent(4)}}
+        {%- endif -%}
         {%- endif -%}
     {% endfor %}
 

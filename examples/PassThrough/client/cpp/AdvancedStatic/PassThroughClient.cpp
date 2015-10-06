@@ -94,8 +94,12 @@ std::vector<int32_t> PassThroughDFE(int size, std::vector<int32_t> dataIn) {
 		// Free allocated maxfile data
 		client.PassThrough_free();
 
+		// Close!
+		transport->close();
+
 	} catch (TException& tx) {
 		cout << "ERROR: " << tx.what() << endl;
+		exit(-1);
 	}
 
 	return dataOut;
@@ -119,6 +123,7 @@ int main() {
 	// Checking results
 	if (check(dataOutDFE, dataOutCPU, size)) {
 		cout << "Test failed." << endl;
+		exit(-1);
 	} else {
 		cout << "Test passed!" << endl;
 	}

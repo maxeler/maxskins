@@ -13,7 +13,8 @@ RUN yum -y update
 RUN yum install -y wget ant
 
 ADD maxcompiler-*-installer.tar.gz /
-RUN cd maxcompiler-*-full-installer && echo yes | ./install --edition s /opt/maxcompiler
+RUN cd maxcompiler-*-full-installer && \
+    echo yes | ./install --edition s /opt/maxcompiler
 
 ENV MAXCOMPILERDIR=/opt/maxcompiler/
 ENV PATH=/opt/maxcompiler/bin:$PATH
@@ -27,7 +28,8 @@ ENV LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so
 RUN yum -y install epel-release
 
 # General dependencies
-RUN yum -y install libevent-devel zlib-devel openssl-devel python-devel bzip2-devel boost-devel net-tools
+RUN yum -y install libevent-devel zlib-devel openssl-devel python-devel \
+                   bzip2-devel boost-devel net-tools
 
 # Java dependencies
 RUN yum -y install junit ant-junit
@@ -40,13 +42,18 @@ RUN yum install -y ruby ruby-devel rubygems && \
     gem install bundler rake
 
 # C# dependencies
-RUN yum install -y mono-core mono-devel mono-web-devel mono-extras mingw32-binutils mingw32-runtime mingw32-nsis
+RUN yum install -y mono-core mono-devel mono-web-devel mono-extras \
+    mingw32-binutils mingw32-runtime mingw32-nsis
+
+# PHP dependencies
+RUN yum install -y php
 
 # Install Thrift
 RUN yum -y install thrift.x86_64 thrift-devel.x86_64
 
 # Install Thrift libraries for various languages
-RUN yum -y install libthrift-java.noarch libthrift-javadoc.noarch python-thrift.x86_64
+RUN yum -y install libthrift-java.noarch libthrift-javadoc.noarch \
+           python-thrift.x86_64
 RUN gem install thrift
 
 ############################
@@ -54,9 +61,7 @@ RUN gem install thrift
 ############################
 ADD . /opt/maxskins
 
-RUN cd /opt/maxskins &&\
-    pip install -r requirements.txt
-
-ENV PATH=/opt/maxskins/:$PATH
+RUN cd /opt/maxskins && \
+    ./setup.py install
 
 WORKDIR /opt/maxskins

@@ -89,6 +89,7 @@ def vector_addition_dfe(size, scalar, a, b):
 
     except Thrift.TException, thrift_exceptiion:
         print '%s' % (thrift_exceptiion.message)
+        sys.exit(-1)
 
     return c
 

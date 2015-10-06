@@ -85,6 +85,7 @@ def pass_through_dfe(size, data_in):
 
     except Thrift.TException, thrift_exceptiion:
         print '%s' % (thrift_exceptiion.message)
+        sys.exit(-1)
 
     return data_out
 
@@ -106,6 +107,7 @@ def test():
     # Checking results
     if check(data_out_dfe, data_out_cpu, size):
         print "Test failed."
+        sys.exit(-1)
     else:
         print "Test passed!"
 

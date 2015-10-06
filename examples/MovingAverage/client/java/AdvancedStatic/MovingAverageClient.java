@@ -26,6 +26,7 @@ public class MovingAverageClient {
             if (dataOut.get(i) != (xf + yf + zf) / 3) {
                 System.out.println("Test failed!" + dataOut.get(i) + " ! = " + ((xf + yf + zf) / 3));
                 status = 1;
+                System.exit(-1);
                 break;
             }
         }
@@ -100,6 +101,7 @@ public class MovingAverageClient {
 
         } catch (TException x) {
             x.printStackTrace();
+            System.exit(-1);
         }
     }
        

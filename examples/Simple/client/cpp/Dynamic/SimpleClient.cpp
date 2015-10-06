@@ -97,8 +97,9 @@ std::vector<double> SimpleDFE(int size, std::vector<double> dataIn) {
 		// Close!
 		transport->close();
     
-	} catch (TException& tx) {
-		cout << "ERROR: " << tx.what() << endl;
+	} catch (TException& thrift_exceptiion) {
+		cout << "ERROR: " << thrift_exceptiion.what() << endl;
+		exit(-1);
 	}
 
 	return dataOut;
@@ -122,6 +123,7 @@ int main() {
 	// Checking results
 	if (check(dataOutDFE, dataOutCPU, size)) {
 		cout << "Test failed." << endl;
+		exit(-1);
 	} else {
 		cout << "Test passed!" << endl;
 	}

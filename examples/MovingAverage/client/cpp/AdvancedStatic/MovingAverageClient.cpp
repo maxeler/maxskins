@@ -24,6 +24,7 @@ void check(std::vector<double> dataIn, std::vector<double> dataOut, int size)
 		if(dataOut[i] != tmp) {
 			status = 1;
 			cout << "Test failed!" << endl;
+			exit(-1);
 			break;
 		}
 	}
@@ -98,6 +99,7 @@ int main()
     
 	} catch (TException& tx) {
 		cout << "ERROR: " << tx.what() << endl;
+		exit(-1);
 	}
 
 	return 0;

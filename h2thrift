@@ -1,0 +1,168 @@
+#!/usr/bin/env python
+
+"""
+Usage:
+  h2thrift [-I <dir>...] <header_file> [-d <output_directory>]
+  h2thrift -h | --help
+  h2thrift -v | --version
+
+Options:
+  -I <dir>                  Add the directory dir
+                            to the list of directories
+                            to be searched for header files.
+  -d <output_directory>     Output directory [default: .]
+  -h --help                 Show this message
+  -v --version              Show h2thrift version
+"""
+
+import os
+import sys
+from tempfile  import NamedTemporaryFile
+
+from docopt    import docopt
+from fabricate import run
+from jinja2    import Template
+
+import common
+from parse     import parse
+
+def parse_input_arguments():
+    """
+    Parse input arguments using docopt,
+    and validate parsed arguments.
+
+    Output:
+        Dictionary containing: search directories,
+                               output directory
+                               header file and
+                               header name.
+
+        header_file -- path to header file
+        header_name -- name of header file
+        output_dir  -- output directory
+        search_dirs -- list of search directories
+    """
+    docopt_arguments = docopt(__doc__, version=common.VERSION)
+
+    header_file = os.path.abspath(docopt_arguments['<header_file>'])
+
+    if not os.path.isfile(header_file):
+        print 'No such header file!'
+        sys.exit(-1)
+
+    if common.get_file_extension(header_file) != '.h':
+        print 'Header file must have .h extension!'
+        sys.exit(-1)
+
+    return {'header_file': header_file,
+            'header_name': common.get_file_name(header_file),
+            'output_dir': os.path.abspath(docopt_arguments['-d']),
+            'search_dirs': [os.path.abspath(search_dir)
+                            for search_dir in docopt_arguments['-I']]}
+
+def process_header_file(arguments):
+    """
+    Create data for templates.
+
+    Input:
+        Arguments dictionary containing: search directories,
+                                         output directory
+                                         header file and
+                                         header name.
+
+        header_file -- path to header file
+        header_name -- name of header file
+        output_dir  -- output directory
+        search_dirs -- list of search directories
+
+    Output:
+        Dictionary containing: name, functions, enums,
+                               structs and typedefs.
+
+        name -- name of header file
+
+        functions -- list of functions
+        Each function has:
+            type -- type of function
+            name -- name of function
+            arguments -- list of arguments
+
+            Each argument has:
+                type -- type of the argument
+                name -- name of the argument
+                array -- array lenght of argument (optional)
+
+        enums -- list of enums
+        Each enum has:
+            name -- name of enum
+            elements -- list of elements
+
+            Each element has:
+                name -- name of the element
+                value -- value of the element
+
+        structs -- list of structures
+        Each structure has:
+            name -- name of structure
+            arguments -- list of arguments
+
+            Each argument has:
+                type -- type of the argument
+                name -- name of the argument
+                array -- array lenght of argument (optional)
+
+        typedefs -- list of typedefs.
+        Each typedef has:
+            type -- type of the typedef
+            name -- name of the typedef
+    """
+    preprocessed_header = NamedTemporaryFile()
+
+    dirs = [['-I', current_dir] for current_dir in arguments['search_dirs']]
+
+    # Preprocess header file using cpp (C preprocessor).
+    # More about how cpp works can be found at:
+    #     https://en.wikipedia.org/wiki/C_preprocessor
+    run('cpp', dirs, arguments['header_file'], preprocessed_header.name)
+
+    return dict(parse(preprocessed_header.read()).items() +
+                [['name', arguments['header_name']]])
+
+def render_template(data, template_path, rendered_path):
+    """
+    Renders template using data.
+
+    Input:
+        data -- data model for template
+        template_path -- path to template
+        rendered_path -- path to rendered file
+
+    Output:
+        Saves rendered file to rendered_path.
+        This file is rendered from template located at template_path
+        and generated from data model.
+    """
+    with open(template_path, 'r') as template_file:
+        template = Template(template_file.read())
+
+    with open(rendered_path, 'w') as rendered_file:
+        rendered_file.write(template.render(data=data))
+
+if __name__ == '__main__':
+    TEMPLATE_DIR = os.path.join(common.COMMON_DIR, 'templates')
+
+    ARGUMENTS = parse_input_arguments()
+
+    DATA = process_header_file(ARGUMENTS)
+
+    # Render Thrift IDL file.
+    THRIFT_PATH = os.path.join(TEMPLATE_DIR, 'thrift.jinja')
+    THRIFTFILE_NAME = ARGUMENTS['header_name'] + '.thrift'
+    THRIFTFILE_PATH = os.path.join(ARGUMENTS['output_dir'], THRIFTFILE_NAME)
+    render_template(DATA, THRIFT_PATH, THRIFTFILE_PATH)
+
+    # Render server C++ implementation.
+    SERVER_PATH = os.path.join(TEMPLATE_DIR, 'server.jinja')
+    SERVERFILE_NAME = ARGUMENTS['header_name'] + '_server.cpp'
+    SERVERFILE_PATH = os.path.join(ARGUMENTS['output_dir'], SERVERFILE_NAME)
+    render_template(DATA, SERVER_PATH, SERVERFILE_PATH)

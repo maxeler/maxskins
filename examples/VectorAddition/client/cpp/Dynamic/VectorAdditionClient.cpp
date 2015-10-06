@@ -22,6 +22,7 @@ void check(std::vector<int32_t> x, std::vector<int32_t> y, std::vector<int32_t> 
 		if (s[i] != x[i] + y[i] + scalar) {
 			cout << "Test failed!" << endl;
 			status = 1;
+			exit(-1);
 			break;
 		}
 
@@ -108,6 +109,7 @@ int main(int argc, char** argv) {
 	
 	} catch (TException& tx) {
 		cout << "ERROR: " << tx.what() << endl;
+		exit(-1);
 	}
 
 	return 0;

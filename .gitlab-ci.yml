@@ -1,25 +1,346 @@
-before_script:
-  - virtualenv venv --quiet
-  - source venv/bin/activate
-  - pip install -r requirements.txt --quiet
+stages:
+    - lint
+    - unit-tests
+    - build-image
+    - e2e-tests
 
-pylint:
-  script:
-  - pip install pylint --quiet
-  - pylint --rcfile=.pylintrc format.py
-  - pylint --rcfile=.pylintrc parse.py
-  - pylint --rcfile=.pylintrc maxskins
-  - pylint --rcfile=.pylintrc tests/test_format.py
-  - pylint --rcfile=.pylintrc tests/test_parse.py
-  - pylint --rcfile=.pylintrc examples/PassThrough/client/py/Dynamic/PassThroughClient.py
-  - pylint --rcfile=.pylintrc examples/PassThrough/client/py/BasicStatic/PassThroughClient.py
-  - pylint --rcfile=.pylintrc examples/PassThrough/client/py/AdvancedStatic/PassThroughClient.py
-  - pylint --rcfile=.pylintrc examples/Simple/client/py/Dynamic/SimpleClient.py
-  - pylint --rcfile=.pylintrc examples/Simple/client/py/BasicStatic/SimpleClient.py
-  - pylint --rcfile=.pylintrc examples/Simple/client/py/AdvancedStatic/SimpleClient.py
+pylint-maxskins:
+    image: python:2.7
+    stage: lint
+    script:
+    - pip install -r requirements.txt --quiet
+    - pip install pylint --quiet
+    - pylint --rcfile=.pylintrc maxskins h2thrift *.py tests/*.py
+    tags:
+        - docker
 
-tests:
-  script:
-  - pip install nose
-  - cd tests/
-  - nosetests -v --with-coverage --cover-min-percentage=100
+pylint-examples:
+    image: python:2.7
+    stage: lint
+    script:
+    - pip install thrift --quiet
+    - pip install pylint --quiet
+    - pylint --rcfile=.pylintrc examples/*/client/py/*/*.py
+    tags:
+        - docker
+    allow_failure: true
+
+
+rubocop-examples:
+    image: ruby:2.0.0
+    stage: lint
+    script:
+    - gem install thrift
+    - gem install rubocop
+    - rubocop --format simple
+    tags:
+        - docker
+    allow_failure: true
+
+unit-tests:
+    image: python:2.7
+    stage: unit-tests
+    script:
+    - pip install -r requirements.txt --quiet
+    - pip install nose --quiet
+    - cd tests/
+    - nosetests -v --with-coverage --cover-min-percentage=100
+    tags:
+        - docker
+
+build-image:
+    stage: build-image
+    script:
+        - TAG=`git log --pretty=format:'%h' -n 1`
+        - REPO="registry:5000/maxskins"
+        - cp $MAXCOMPILER_INSTALLERS_DIR/maxcompiler-2014.2-installer.tar.gz ./maxcompiler-2014.2-installer.tar.gz
+        - docker build -t $REPO:$TAG .
+        - docker tag -f $REPO:$TAG $REPO:latest
+        - docker push $REPO
+    only:
+        - master
+    tags:
+        - docker build
+        - tihi01
+
+Simple:
+    image: registry:5000/maxskins
+    stage: e2e-tests
+    script:
+        - ./setup.py --quiet install
+        - PATH=/opt/maxcompiler/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - cd examples/Simple
+        - maxskins --py --cpp --rb --java Simple.max
+        - maxcompilersim restart
+        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+        - pushd client/py
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/Simple_server 9090 & PID=$!
+        -         ./SimpleClient.py
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/rb
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/Simple_server 9090 & PID=$!
+        -         ./SimpleClient.rb
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/cpp
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/Simple_server 9090 & PID=$!
+        -         make
+        -         ./Simple_client
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+    tags:
+        - docker
+
+MovingAverage:
+    image: registry:5000/maxskins
+    stage: e2e-tests
+    script:
+        - ./setup.py --quiet install
+        - PATH=/opt/maxcompiler/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - cd examples/MovingAverage
+        - maxskins --py --cpp --rb --java --csharp MovingAverage.max
+        - maxcompilersim restart
+        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+        - pushd client/py
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/MovingAverage_server 9090 & PID=$!
+        -         ./MovingAverageClient.py
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/rb
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/MovingAverage_server 9090 & PID=$!
+        -         ./MovingAverageClient.rb
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/cpp
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/MovingAverage_server 9090 & PID=$!
+        -         make
+        -         ./MovingAverage_client
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/java
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/MovingAverage_server 9090 & PID=$!
+        -         ant
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/csharp
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/MovingAverage_server 9090 & PID=$!
+        -         mcs /out:MovingAverageClient.exe MovingAverageClient.cs /recurse:../gen-csharp/com/maxeler/MovingAverage/*.cs /r:Thrift.dll
+        -         mono MovingAverageClient.exe
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+    tags:
+        - docker
+
+PassThrough:
+    image: registry:5000/maxskins
+    stage: e2e-tests
+    script:
+        - ./setup.py --quiet install
+        - PATH=/opt/maxcompiler/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - cd examples/PassThrough
+        - maxskins --py --cpp --rb --java PassThrough.max
+        - maxcompilersim restart
+        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+        - pushd client/py
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/PassThrough_server 9090 & PID=$!
+        -         ./PassThroughClient.py
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/rb
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/PassThrough_server 9090 & PID=$!
+        -         ./PassThroughClient.rb
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/cpp
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/PassThrough_server 9090 & PID=$!
+        -         make
+        -         ./PassThrough_client
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+    tags:
+        - docker
+
+Correlation:
+    image: registry:5000/maxskins
+    stage: e2e-tests
+    script:
+        - ./setup.py --quiet install
+        - PATH=/opt/maxcompiler/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - cd examples/Correlation
+        - maxskins --py --cpp --rb --java correlation.max
+        - maxcompilersim -c ISCA restart
+        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+        - server/correlation_server 9090 &
+        - pushd client/py/BasicStatic
+        - ./correlation.py
+    tags:
+        - docker
+
+LMemLoopback:
+    image: registry:5000/maxskins
+    stage: e2e-tests
+    script:
+        - ./setup.py --quiet install
+        - PATH=/opt/maxcompiler/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - cd examples/LMemLoopback
+        - maxskins --py --cpp --rb --java LMemLoopback.max
+        - maxcompilersim restart
+        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+        - pushd client/py
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/LMemLoopback_server 9090 & PID=$!
+        -         ./LMemLoopbackClient.py
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/rb
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/LMemLoopback_server 9090 & PID=$!
+        -         ./LMemLoopbackClient.rb
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/cpp
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/LMemLoopback_server 9090 & PID=$!
+        -         make
+        -         ./LMemLoopback_client
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+    tags:
+        - docker
+
+VectorAddition:
+    image: registry:5000/maxskins
+    stage: e2e-tests
+    script:
+        - ./setup.py --quiet install
+        - PATH=/opt/maxcompiler/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - cd examples/VectorAddition
+        - maxskins --py --cpp --rb --java VectorAddition.max
+        - maxcompilersim -c MAIA restart
+        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+        - pushd client/py
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/VectorAddition_server 9090 & PID=$!
+        -         ./VectorAdditionClient.py
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/rb
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/VectorAddition_server 9090 & PID=$!
+        -         ./VectorAdditionClient.rb
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+        - popd
+        - pushd client/cpp
+        - for i in $( ls ); do 
+        -     if [[ $i != *gen* ]]; then 
+        -         pushd $i
+        -         ../../../server/VectorAddition_server 9090 & PID=$!
+        -         make
+        -         ./VectorAddition_client
+        -         kill $PID
+        -         popd
+        -     fi
+        - done
+    tags:
+        - docker

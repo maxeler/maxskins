@@ -33,19 +33,25 @@ This DFE is compiled for ISCA card using MaxCompiler 2014.2.
 
 To run it using simulator, first simulated ISCA card needs to be (re)started:
 
-    maxcompilersim -c ISCA -e QSFP_TOP_10G_PORT1:172.16.50.10:255.255.255.0 -p QSFP_TOP_10G_PORT1:top1.pcap restart
+```bash
+maxcompilersim -c ISCA -e QSFP_TOP_10G_PORT1:172.16.50.10:255.255.255.0 -p QSFP_TOP_10G_PORT1:top1.pcap restart
+```
 
 These environment variables need to be exported so this example can be executed:
 
-    export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
-    export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
-    export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+```bash
+export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+```
 
 ### Create skin for Python
 
 Create skin from **examples/SignExt** directory with:
 
-    maxskins --py SignExt.max
+```bash
+maxskins --py SignExt.max
+```
     
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory. 
 In the **client** directory there are Apache Thrift files necessary for client. 
@@ -56,7 +62,9 @@ In the **.scratch** directory there are all files that are generated during the 
 
 Start the server from the created server directory (**examples/SignExt/server**) with:
 
-    ./SignExt_server 9090 &
+```bash
+./SignExt_server 9090 &
+```
 
 # Building
 
@@ -64,24 +72,28 @@ Start the server from the created server directory (**examples/SignExt/server**)
 
 Build the auxiliary application, used to send the packets located at (**examples/SignExt/sender**).
 
-    ./build.py
+```bash
+./build.py
+```
 
 ### Run the Python example
 
 Run the example from the **examples/SignExt/client/py/Dynamic/** directory with:
 
-    python signext.py 172.16.50.1 172.16.50.10
+```bash
+./signext.py 172.16.50.1 172.16.50.10
+```
 
 Then open a new terminal and inject some packets:
 
-```
+```bash
 $ ./sender/sender
 Sender finished
 ```
 
 In the first terminal, you should see the received packet details:
 
-```
+```bash
 Kernel got: aSz = 3, bSz = 0, cSz = 1
 Kernel got: aSz = 6, bSz = 1, cSz = 3
 CPU: Got output frame 1 - size 20 bytes
@@ -102,4 +114,7 @@ The application will continue to wait for more packets, so when you are finished
 
 After executing application, simulator can be stopped with the following command::
 
-    maxcompilersim -c ISCA stop
+```bash
+maxcompilersim -c ISCA stop
+```
+

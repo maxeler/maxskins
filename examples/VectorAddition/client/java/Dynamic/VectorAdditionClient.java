@@ -20,6 +20,7 @@ public class VectorAdditionClient {
             if (s.get(i) != x.get(i) + y.get(i) + scalar) {
                 System.out.println("Test failed!");
                 status = 1;
+                System.exit(-1);
                 break;
             }
         }
@@ -111,6 +112,7 @@ public class VectorAdditionClient {
 
         } catch (TException x) {
             x.printStackTrace();
+            System.exit(-1);
         }
     }
        

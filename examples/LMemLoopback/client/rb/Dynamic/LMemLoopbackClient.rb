@@ -114,6 +114,7 @@ begin
 
     if (status == 1)
         puts "Test failed."
+        Kernel.exit(-1)
     else
         puts "Test passed!"
     end
@@ -121,4 +122,5 @@ begin
 
 rescue Thrift::Exception => tx
     puts 'Thrift::Exception: ', tx.message, "\n"
+    Kernel.exit(-1)
 end

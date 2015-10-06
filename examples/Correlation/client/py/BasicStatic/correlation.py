@@ -198,6 +198,9 @@ def correlate_dfe(data, size_timeseries, num_timeseries, correlations):
         client.free(address_out_correlation)
         client.free(address_out_indices)
 
+        # Close!
+        transport.close()
+
         dfe_time = time.time() - start_time
         print 'DFE execution time:         %.5lfs' % dfe_time
 
@@ -219,6 +222,7 @@ def correlate_dfe(data, size_timeseries, num_timeseries, correlations):
 
     except Thrift.TException, thrift_exception:
         print '%s' % (thrift_exception.message)
+        sys.exit(-1)
 
 def correlate_cpu(data, num_timeseries, window_size,
                   num_timesteps, correlations_cpu, indices_step):
@@ -273,6 +277,7 @@ def check(correlations_dfe, correlations_cpu, num_timeseries, indices_step):
         print 'Test passed!'
     else:
         print 'Test failed %d times.' % failed
+        sys.exit(-1)
 
 def test():
     '''

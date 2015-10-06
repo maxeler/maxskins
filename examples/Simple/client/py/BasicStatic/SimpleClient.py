@@ -26,6 +26,8 @@ def simple_cpu(size, data_in):
 
 def simple_dfe(size, data_in):
     """Simple DFE implementation."""
+    data_out = []
+    
     try:
         # Make socket
         transport = TSocket.TSocket('localhost', 9090)
@@ -41,6 +43,9 @@ def simple_dfe(size, data_in):
 
         # Connect!
         transport.open()
+
+        # Initialize maxfile
+        max_file = client.Simple_init()
 
         # Allocate and send input streams to server
         address_data_in = client.malloc_float(size)
@@ -59,11 +64,15 @@ def simple_dfe(size, data_in):
         client.free(address_data_in)
         client.free(address_data_out)
 
+        # Free allocated maxfile data
+        client.Simple_free()
+
         # Close!
         transport.close()
 
     except Thrift.TException, thrift_exceptiion:
         print '%s' % (thrift_exceptiion.message)
+        sys.exit(-1)
 
     return data_out
 
@@ -85,6 +94,7 @@ def test():
     # Checking results
     if check(data_out_dfe, data_out_cpu, size):
         print "Test failed."
+        sys.exit(-1)
     else:
         print "Test passed!"
 
