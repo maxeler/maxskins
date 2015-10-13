@@ -67,7 +67,10 @@ public class LMemLoopbackClient {
 	    client.free(address_inB);
 	    client.free(address_outData);
 
-	} catch (TException x) {
+	    // Close!
+            transport.close();
+
+        } catch (TException x) {
             x.printStackTrace();
 	    System.exit(-1);
         }

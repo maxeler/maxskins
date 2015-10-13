@@ -107,12 +107,15 @@ public class LMemLoopbackClient {
 	    // Free allocated maxfile data
 	    client.LMemLoopback_free();
 
-	} catch (TException x) {
+	    // Close!
+	    transport.close();
+
+        } catch (TException x) {
             x.printStackTrace();
-	    System.exit(-1);
+            System.exit(-1);
         }
 
-	return outData;
+        return outData;
     }
 
     public static void main (String [] args) {

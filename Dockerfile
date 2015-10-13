@@ -48,6 +48,12 @@ RUN yum install -y mono-core mono-devel mono-web-devel mono-extras \
 # PHP dependencies
 RUN yum install -y php
 
+# Go dependencies
+RUN yum install -y go
+
+# Perl dependencies
+RUN yum -y install perl perl-Bit-Vector perl-Class-Accessor
+
 # Install Thrift
 RUN yum -y install thrift.x86_64 thrift-devel.x86_64
 
@@ -63,5 +69,10 @@ ADD . /opt/maxskins
 
 RUN cd /opt/maxskins && \
     ./setup.py install
+
+ENV GOPATH=/opt/maxskins/examples/lib/go
+ENV MONO_PATH=/opt/maxskins/examples/lib/csharp/
+ENV PERL5LIB=/opt/maxskins/examples/lib/perl/
+ENV PHP_THRIFT_LIB=/opt/maxskins/examples/lib/php
 
 WORKDIR /opt/maxskins

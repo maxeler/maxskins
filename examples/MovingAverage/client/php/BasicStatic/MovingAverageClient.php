@@ -1,29 +1,22 @@
 <?php 
-$GLOBALS['THRIFT_ROOT'] = '.';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Transport/TTransport.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Transport/TSocket.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Protocol/TProtocol.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Protocol/TBinaryProtocol.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Transport/TBufferedTransport.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Type/TMessageType.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Factory/TStringFuncFactory.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/StringFunc/TStringFunc.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/StringFunc/Core.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Type/TType.php';  
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Exception/TException.php'; 
-require_once $GLOBALS['THRIFT_ROOT'].'/Thrift/Exception/TTransportException.php'; 
-use Thrift\Protocol\TBinaryProtocol;  
-use Thrift\Transport\TSocket;  
-use Thrift\Transport\TSocketPool;  
-use Thrift\Transport\TFramedTransport;  
+set_include_path(get_include_path() . PATH_SEPARATOR . getenv('PHP_THRIFT_LIB'));
+
+require_once 'Thrift/ClassLoader/ThriftClassLoader.php';
+
+use Thrift\ClassLoader\ThriftClassLoader;
+
+$GEN_DIR = '../gen-php';
+
+$loader = new ThriftClassLoader();
+$loader->registerNamespace('Thrift', getenv('PHP_THRIFT_LIB'));
+$loader->registerDefinition('com\maxeler\MovingAverage', $GEN_DIR);
+$loader->register();
+
+use Thrift\Protocol\TBinaryProtocol;
+use Thrift\Transport\TSocket;
 use Thrift\Transport\TBufferedTransport;
 use Thrift\Exception\TException;
-use Thrift\Exception\TTransportException;
 
-$GEN_DIR = '../gen-php/com/maxeler/MovingAverage';
-
-require_once $GEN_DIR.'/MovingAverageService.php';
-require_once $GEN_DIR.'/Types.php';
 use com\maxeler\MovingAverage\MovingAverageServiceClient;
 
 function check($dataIn, $dataOut, $size) {

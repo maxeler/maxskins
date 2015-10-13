@@ -12,16 +12,10 @@ MaxSkins enable easy and seamless access to the DFEs from C++, Java, Python, Rub
 - MaxCompiler
 - Apache Thrift (instructions on how to install Apache Thrift: <https://thrift.apache.org/docs/install>)
 
-## Step 1. Install all necessary Python requirements
+## Run setup script
 
 ```bash
-pip install -r requirements.txt
-```
-    
-## Step 2. Add maxskins utility to the PATH
-
-```bash
-export PATH=<maxskins_dir>:$PATH
+./setup.py install
 ```
 
 # Quick Start

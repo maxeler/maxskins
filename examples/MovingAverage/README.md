@@ -40,7 +40,7 @@ Create skin from **examples/MovingAverage** directory with:
 maxskins --cpp MovingAverage.max
 ```
 
-### Create skin for C#
+### Create skin for C# 
 
 Create skin from **examples/MovingAverage** directory with:
 
@@ -70,6 +70,22 @@ Create skin from **examples/MovingAverage** directory with:
 
 ```bash
 maxskins --php MovingAverage.max
+```
+
+### Create skin for Go
+
+Create skin from **examples/MovingAverage** directory with:
+
+```bash
+maxskins --go MovingAverage.max
+```
+
+### Create skin for Perl
+
+Create skin from **examples/MovingAverage** directory with:
+
+```bash
+maxskins --perl MovingAverage.max
 ```
 
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory.    
@@ -107,7 +123,7 @@ make
 Run the example from the **examples/MovingAverage/client/csharp/BasicStatic/** or **examples/MovingAverage/client/csharp/AdvancedStatic/** or **examples/MovingAverage/client/csharp/Dynamic/** directory with:
 
 ```bash
-mcs /out:MovingAverageClient.exe MovingAverageClient.cs /recurse:../gen-csharp/com/maxeler/MovingAverage/*.cs /r:Thrift.dll
+mcs /out:MovingAverageClient.exe MovingAverageClient.cs /recurse:../gen-csharp/com/maxeler/MovingAverage/*.cs /r:$MONO_PATH/Thrift.dll
 mono MovingAverageClient.exe
 ```
 
@@ -133,6 +149,22 @@ Run the example from the **examples/MovingAverage/client/php/BasicStatic/** or *
 
 ```bash
 php ./MovingAverageClient.php
+```
+
+### Run the Go example
+
+Run the example from the **examples/MovingAverage/client/go/BasicStatic/** or **examples/MovingAverage/client/go/AdvancedStatic/** or **examples/MovingAverage/client/go/Dynamic/** directory with:
+
+```bash
+go run MovingAverageClient.go
+```
+
+### Run the Perl example
+
+Run the example from the **examples/MovingAverage/client/perl/BasicStatic/** or **examples/MovingAverage/client/perl/AdvancedStatic/** or **examples/MovingAverage/client/perl/Dynamic/** directory with:
+
+```bash
+perl MovingAverageClient.pl
 ```
     
 **Note:** Examples can not be run if the server is not started. 

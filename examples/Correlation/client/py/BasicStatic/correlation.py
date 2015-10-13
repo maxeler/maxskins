@@ -80,11 +80,11 @@ def prepare_data_for_dfe(data, size_timeseries, num_timeseries, num_timesteps,
             inv[i][j] = 1 / math.sqrt(window_size * sums_sq[i][j] -
                                       sums[i][j] * sums[i][j])
 
-            #Precalculations REORDERED in DFE ORDER
+            # Precalculations REORDERED in DFE ORDER
             precalculations.append(sums[i][j])
             precalculations.append(inv[i][j])
 
-            #Data pairs REORDERED in DFE ORDER
+            # Data pairs REORDERED in DFE ORDER
             data_pairs.append(new)
             data_pairs.append(old)
 
@@ -131,7 +131,7 @@ def correlate_dfe(data, size_timeseries, num_timeseries, correlations):
         precalculations = []
         data_pairs = []
 
-        burst_size = 384 #for anything other than ISCA this should be 384
+        burst_size = 384 / 2  # for anything other than ISCA this should be 384
         in_mem_load = [0] * (num_bursts * burst_size)
 
         prepare_data_for_dfe(data, size_timeseries,
@@ -170,7 +170,7 @@ def correlate_dfe(data, size_timeseries, num_timeseries, correlations):
             num_bursts, address_loop_length, address_in_mem_load)
         print 'LMem initialized!'
 
-        #Executing correlation action
+        # Executing correlation action
         client.correlation(
             num_bursts,              # scalar input
             num_timesteps,           # scalar input
@@ -192,6 +192,7 @@ def correlate_dfe(data, size_timeseries, num_timeseries, correlations):
         loop_length = client.receive_data_int32_t(address_loop_length, 1)
 
         # Free allocated memory for streams on server
+        client.free(address_loop_length)
         client.free(address_in_mem_load)
         client.free(address_precalculations)
         client.free(address_data_pairs)

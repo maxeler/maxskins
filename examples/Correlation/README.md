@@ -31,6 +31,14 @@ Create skin from **examples/Correlation** directory with:
 ```bash
 maxskins --py correlation.max
 ```
+
+### Create skin for C++
+
+Create skin from **examples/Correlation** directory with:
+
+```bash
+maxskins --cpp correlation.max
+```
     
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory.    
 In the **client** directory there are Apache Thrift files necessary for client. 
@@ -47,10 +55,19 @@ Start the server from the created server directory (**examples/Correlation/serve
 
 ### Run the Python example
 
-Run the example from the **examples/Correlation/client/py/BasicStatic/** directory with:
+Run the example from the **examples/Correlation/client/py/BasicStatic/** or **examples/Correlation/client/py/AdvancedStatic/** or **examples/Correlation/client/py/Dynamic/** directory with:
 
 ```bash
 ./correlation.py
+```
+
+### Run the C++ example
+
+Run the example from the **examples/Correlation/client/cpp/BasicStatic/** or **examples/Correlation/client/cpp/AdvancedStatic/** or **examples/Correlation/client/cpp/Dynamic/** directory with:
+
+```bash
+make
+./Correlation_client
 ```
     
 **Note:** Examples can not be run if the server is not started. 

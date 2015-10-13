@@ -99,6 +99,9 @@ public class LMemLoopbackClient {
 	    // Free allocated maxfile data
 	    client.LMemLoopback_free();
 
+            // Close!
+            transport.close();
+
 	} catch (TException x) {
             x.printStackTrace();
             System.exit(-1);
