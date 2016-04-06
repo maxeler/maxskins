@@ -1,5 +1,66 @@
 # MaxSkins Changelog
 
+## 0.1.5 (2016-04-01)
+
+### Features:
+
+  - Added documentation
+  - Added Apache Thrift libraries for Haskell and Erlang
+  - Added Haskell and Erlang dependencies in Dockerfile
+  - Added e2e_test script for automated testing
+
+### Improvements:
+
+  - Added time breakdown for all examples
+  - Improved coding style for MovingAverage, LMemLoopback, PassThrough, SignExt, Simple and VectorAddition examples
+  - Added .gitlab-ci.yml linter stage for Cpp, Java, Go and C#
+  - Improved .gitlab-ci.yml e2e stage using e2e_test script
+  
+### Tests:
+
+  - Added e2e test for Sign Extension example
+
+### Examples:
+
+  - Added Basic static, Advanced static and Dynamic interfaces for Correlation example in C#
+  - Added Basic static, Advanced static and Dynamic interfaces for Correlation example in Go
+  - Added Basic static, Advanced static and Dynamic interfaces for Correlation example in Ruby
+  - Added Basic static, Advanced static and Dynamic interfaces for Correlation example in Haskell
+  - Added Basic static, Advanced static and Dynamic interfaces for LMemLoopback example in C#
+  - Added Basic static, Advanced static and Dynamic interfaces for LMemLoopback example in Go
+  - Added Basic static, Advanced static and Dynamic interfaces for LMemLoopback example in Perl
+  - Added Basic static and Advanced static interfaces for LMemLoopback example in PHP
+  - Added Basic static, Advanced static and Dynamic interfaces for LMemLoopback example in Haskell
+  - Added Basic static, Advanced static and Dynamic interfaces for LMemLoopback example in Erlang
+  - Added Basic static, Advanced static and Dynamic interfaces for Moving Average example in Haskell
+  - Added Basic static, Advanced static and Dynamic interfaces for Moving Average example in Erlang
+  - Added Basic static, Advanced static and Dynamic interfaces for Pass Through example in C#
+  - Added Basic static, Advanced static and Dynamic interfaces for Pass Through example in Go
+  - Added Basic static, Advanced static and Dynamic interfaces for Pass Through example in Perl
+  - Added Basic static and Advanced static interfaces for Pass Through example in PHP
+  - Added Basic static, Advanced static and Dynamic interfaces for Pass Through example in Haskell
+  - Added Basic static, Advanced static and Dynamic interfaces for Pass Through example in Erlang
+  - Added Dynamic interface for Sign Extension example in Cpp
+  - Added Dynamic interface for Sign Extension example in C#
+  - Added Dynamic interface for Sign Extension example in Go
+  - Added Dynamic interface for Sign Extension example in Java
+  - Added Dynamic interface for Sign Extension example in Ruby
+  - Added Dynamic interface for Sign Extension example in Perl
+  - Added Dynamic interface for Sign Extension example in Haskell
+  - Added Dynamic interface for Sign Extension example in Erlang
+  - Added Basic static, Advanced static and Dynamic interfaces for Simple example in C#
+  - Added Basic static, Advanced static and Dynamic interfaces for Simple example in Go
+  - Added Basic static, Advanced static and Dynamic interfaces for Simple example in Perl
+  - Added Basic static and Advanced static interfaces for Simple example in PHP
+  - Added Basic static, Advanced static and Dynamic interfaces for Simple example in Haskell
+  - Added Basic static, Advanced static and Dynamic interfaces for Simple example in Erlang
+  - Added Basic static, Advanced static and Dynamic interfaces for Vector Addition example in C#
+  - Added Basic static, Advanced static and Dynamic interfaces for Vector Addition example in Go
+  - Added Basic static, Advanced static and Dynamic interfaces for Vector Addition example in Perl
+  - Added Basic static and Advanced static interfaces for Vector Addition example in PHP
+  - Added Basic static, Advanced static and Dynamic interfaces for Vector Addition example in Haskell
+  - Added Basic static, Advanced static and Dynamic interfaces for Vector Addition example in Erlang
+
 ## 0.1.4 (2015-10-13)
 
 ### Features:

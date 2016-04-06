@@ -88,6 +88,22 @@ Create skin from **examples/MovingAverage** directory with:
 maxskins --perl MovingAverage.max
 ```
 
+### Create skin for Haskell
+
+Create skin from **examples/MovingAverage** directory with:
+
+```bash
+maxskins --hs MovingAverage.max
+```
+
+### Create skin for Erlang 
+
+Create skin from **examples/MovingAverage** directory with:
+
+```bash
+maxskins --erl MovingAverage.max
+```
+
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory.    
 In the **client** directory there are Apache Thrift files necessary for client. 
 In the **server** directory there is a binary file which is used to start the server.   
@@ -166,12 +182,31 @@ Run the example from the **examples/MovingAverage/client/perl/BasicStatic/** or 
 ```bash
 perl MovingAverageClient.pl
 ```
+
+### Run the Haskell example
+
+Run the example from the **examples/MovingAverage/client/hs/BasicStatic/** or **examples/MovingAverage/client/hs/AdvancedStatic/** or **examples/MovingAverage/client/hs/Dynamic/** directory with:
+
+```bash
+ghc -i$HASKELLPATH -o MovingAverageClient MovingAverageClient.hs
+./MovingAverageClient
+```
+
+### Run the Erlang example
+
+Run the example from the **examples/MovingAverage/client/erl/BasicStatic/** or **examples/MovingAverage/client/erl/AdvancedStatic/** or **examples/MovingAverage/client/erl/Dynamic/** directory with:
+
+```bash
+erlc -I $EINCLUDEPATH -I $EBINPATH -I ../gen-erl/ -o ../gen-erl/ ../gen-erl/*.erl
+erlc -I $EINCLUDEPATH -I ../gen-erl/ movingAverageClient.erl
+erl -pa $EBINPATH -pa ../gen-erl/ -noshell -s movingAverageClient t -s init stop
+```
     
 **Note:** Examples can not be run if the server is not started. 
 
 ### Stopping the simulator
 
-After executing application, simulator can be stopped with the following command::
+After executing application, simulator can be stopped with the following command:
 
 ```bash
 maxcompilersim stop

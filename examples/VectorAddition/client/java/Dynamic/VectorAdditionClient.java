@@ -1,121 +1,305 @@
-import com.maxeler.VectorAddition.*;
+import com.maxeler.VectorAddition.VectorAdditionService;
 
 import org.apache.thrift.TException;
-import org.apache.thrift.transport.TSSLTransportFactory;
-import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TSSLTransportFactory.TSSLTransportParameters;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
+import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransport;
 
-import java.util.Random;
-import java.util.List;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
-public class VectorAdditionClient {
-    public static void check(List<Integer> x, List<Integer> y, List<Integer> s, int scalar, int size) {
-        int status = 0;
+/** VectorAddition Dynamic example. */
+public final class VectorAdditionClient {
 
-        for (int i=0; i<size; i++) {
-            if (s.get(i) != x.get(i) + y.get(i) + scalar) {
-                System.out.println("Test failed!");
-                status = 1;
-                System.exit(-1);
-                break;
-            }
-        }
+  /** Minimal random number. */
+  private static final int MIN_RAND_NUM = 0;
 
-        if (status==0)
-            System.out.println("Test successful!");
+  /** Maximal random number. */
+  private static final int MAX_RAND_NUM = 1000;
+
+  /** Size of int in bytes. */
+  private static final int SIZE_OF_INT_IN_BYTES = 4;
+
+  /** Size of int in bits. */
+  private static final int SIZE_OF_INT = 32;
+
+  /** Number of nano seconds in one second. */
+  private static final int NUM_OF_NANO_SECONDS = 1000000000;
+
+  /** Server port. */
+  private static final int PORT = 9090;
+
+  /** Utility classes should not have a public or default constructor. */
+  private VectorAdditionClient() { }
+
+  /**
+   * Generates random data.
+   *
+   * @param size    Size
+   *
+   * @return        Random data
+   */
+  public static List<Integer> randomData(final int size) {
+    List<Integer> randomData = new ArrayList<Integer>();
+
+    Random rn = new Random();
+    final int range = MAX_RAND_NUM - MIN_RAND_NUM + 1;
+
+    for (int i = 0; i < size; i++) {
+      randomData.add(rn.nextInt(range) + MIN_RAND_NUM);
     }
 
-    public static void main (String [] args) {
+    return randomData;
+  }
 
-        try {
+  /**
+   * Checks if vectorAdditionDfe and vectorAdditionCpu return the same value.
+   *
+   * @param dataOutDfe  Data output from DFE
+   * @param dataOutCpu  Data output from CPU
+   * @param size        Size
+   *
+   * @return status     Number of elements that doesn't match
+   */
+  public static int check(final List<Integer> dataOutDfe,
+                           final List<Integer> dataOutCpu, final int size) {
+    int status = 0;
 
-            TTransport transport;
-            transport = new TSocket("localhost", 9090);
-            transport.open();
+    for (int i = 0; i < size; i++) {
+      if (!dataOutDfe.get(i).equals(dataOutCpu.get(i))) {
+        System.out.println(
+            "Output data @ " + i + " = " + dataOutDfe.get(i)
+            + " (expected " + dataOutCpu.get(i) + ")");
 
-            TProtocol protocol = new  TBinaryProtocol(transport);
-            VectorAdditionService.Client client = new VectorAdditionService.Client(protocol);
-
-            final int size = 384;
-
-            List<Integer> x = new ArrayList<Integer>();
-            List<Integer> y = new ArrayList<Integer>();
-            final int scalar = 3;
-
-            // Random generator
-            Random rn = new Random();
-            int minimum = 0;
-            int maximum = 1000;    
-            int range = maximum - minimum + 1;
-
-            // Generate input data
-            for (int i=0; i<size; i++) {
-                x.add(rn.nextInt(range) + minimum);
-                y.add(rn.nextInt(range) + minimum);
-            }
-           
-            // Initialize maxfile
-            long maxfile = client.VectorAddition_init();
-
-            // Load DFE
-            long engine = client.max_load(maxfile, "*");
-
-            // Allocate and send input streams to server
-            long address_x = client.malloc_int32_t(size);
-            client.send_data_int32_t(address_x, x);
-
-            long address_y = client.malloc_int32_t(size);
-            client.send_data_int32_t(address_y, y);
-
-            // Allocate memory for output stream on server
-            long address_s = client.malloc_int32_t(size);
-
-            // Action writeLMem
-            System.out.println("Writing to LMem.");
-            long act = client.max_actions_init(maxfile, "writeLMem");
-            client.max_set_param_uint64t(act, "address", 0);
-            client.max_set_param_uint64t(act, "nbytes", size*4);
-            client.max_queue_input(act, "cpu_to_lmem", address_x, size * 4);
-            client.max_run(engine, act);
-
-            // Action default
-            System.out.println("Running on DFE.");
-            act = client.max_actions_init(maxfile, "default");
-            client.max_set_param_uint64t(act, "N", size);
-            client.max_set_param_uint64t(act, "A", scalar);
-            client.max_queue_input(act, "y", address_y, size * 4);
-            client.max_queue_output(act, "s", address_s, size * 4);
-            client.max_run(engine, act);
-
-            // Unload DFE
-            client.max_unload (engine);
-
-            // Get output stream from server
-            List<Integer> s = client.receive_data_int32_t(address_s, size);
-    
-            // Free allocated memory for streams on server
-            client.free(address_x);
-            client.free(address_y);
-            client.free(address_s);
-
-            // Free allocated maxfile data
-            client.VectorAddition_free();
-        
-            // Checking results
-            check(x, y, s, scalar, size);
-
-            transport.close();
-
-        } catch (TException x) {
-            x.printStackTrace();
-            System.exit(-1);
-        }
+        status++;
+      }
     }
-       
+
+    return status;
+  }
+
+  /**
+   * VectorAddition on CPU.
+   *
+   * @param size          Size
+   * @param firstVector   First vector
+   * @param secondVector  Second vector
+   * @param scalar        Scalar
+   *
+   * @return              Data output
+   */
+  public static List<Integer> vectorAdditionCpu(
+      final int size, final List<Integer> firstVector,
+      final List<Integer> secondVector, final int scalar) {
+    List<Integer> dataOut = new ArrayList<Integer>();
+
+    for (int i = 0; i < size; i++) {
+      dataOut.add(firstVector.get(i) + secondVector.get(i) + scalar);
+    }
+
+    return dataOut;
+  }
+
+  /**
+   * VectorAddition on DFE.
+   *
+   * @param size          Size
+   * @param firstVector   First vector
+   * @param secondVector  Second vector
+   * @param scalar        Scalar
+   *
+   * @return              Data output
+   */
+  public static List<Integer> vectorAdditionDfe(
+      final int size, final List<Integer> firstVector,
+      final List<Integer> secondVector, final int scalar) {
+    List<Integer> dataOut = new ArrayList<Integer>();
+    double startTime = System.nanoTime();
+    DecimalFormat timeFormat = new DecimalFormat("#0.00000");
+
+    // Make socket
+    TTransport transport = new TSocket("localhost", PORT);
+
+    // Wrap in a protocol
+    TProtocol protocol = new TBinaryProtocol(transport);
+
+    // Create a client to use the protocol encoder
+    VectorAdditionService.Client client =
+        new VectorAdditionService.Client(protocol);
+
+    double estimatedTime = (System.nanoTime() - startTime)
+                           / NUM_OF_NANO_SECONDS;
+    System.out.println("Creating a client:\t\t\t\t\t"
+                         + timeFormat.format(estimatedTime) + "s");
+
+    try {
+      // Connect!
+      startTime = System.nanoTime();
+      transport.open();
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Opening connection:\t\t\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Initialize maxfile
+      startTime = System.nanoTime();
+      final long maxfile = client.VectorAddition_init();
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Initializing maxfile:\t\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Load DFE
+      startTime = System.nanoTime();
+      final long engine = client.max_load(maxfile, "*");
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Loading DFE:\t\t\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Allocate and send input streams to server
+      startTime = System.nanoTime();
+      final long addressFirstVector = client.malloc_int32_t(size);
+      client.send_data_int32_t(addressFirstVector, firstVector);
+      final long addressSecondVector = client.malloc_int32_t(size);
+      client.send_data_int32_t(addressSecondVector, secondVector);
+
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Sending input data:\t\t\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Allocate memory for output stream on server
+      startTime = System.nanoTime();
+      final long addressDataOut = client.malloc_int32_t(size);
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Allocating memory for output stream on server:\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Action writeLMem
+      startTime = System.nanoTime();
+      final int sizeBytes = size * SIZE_OF_INT_IN_BYTES;
+
+      long actions = client.max_actions_init(maxfile, "writeLMem");
+      client.max_set_param_uint64t(actions, "address", 0);
+      client.max_set_param_uint64t(actions, "nbytes", sizeBytes);
+      client.max_queue_input(actions, "cpu_to_lmem",
+                             addressFirstVector, sizeBytes);
+      client.max_run(engine, actions);
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Writing to LMem:\t\t\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Action default
+      startTime = System.nanoTime();
+
+      actions = client.max_actions_init(maxfile, "default");
+      client.max_set_param_uint64t(actions, "N", size);
+      client.max_set_param_uint64t(actions, "A", scalar);
+      client.max_queue_input(actions, "y", addressSecondVector, sizeBytes);
+      client.max_queue_output(actions, "s", addressDataOut, sizeBytes);
+
+      client.max_run(engine, actions);
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Vector addition time:\t\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Unload DFE
+      startTime = System.nanoTime();
+      client.max_unload(engine);
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Unloading DFE:\t\t\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Get output stream from server
+      startTime = System.nanoTime();
+      dataOut = client.receive_data_int32_t(addressDataOut, size);
+      System.out.println("Getting output stream:\t(size = "
+                          + size * SIZE_OF_INT + " bit)\t"
+                          + timeFormat.format(estimatedTime) + "s");
+
+      // Free allocated memory for streams on server
+      startTime = System.nanoTime();
+      client.free(addressFirstVector);
+      client.free(addressSecondVector);
+      client.free(addressDataOut);
+      client.free(actions);
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Freeing allocated memory for streams on server:\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Free allocated maxfile data
+      startTime = System.nanoTime();
+      startTime = System.nanoTime();
+      client.VectorAddition_free();
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Freeing allocated maxfile data:\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+      // Close!
+      startTime = System.nanoTime();
+      transport.close();
+      estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+      System.out.println("Closing connection:\t\t\t\t\t"
+                           + timeFormat.format(estimatedTime) + "s");
+
+    } catch (TException x) {
+      x.printStackTrace();
+      System.exit(-1);
+    }
+
+    return dataOut;
+  }
+
+  /**
+   * Calculates vectorAdditionDfe and vectorAdditionCpu and
+   * checks if they return the same value.
+   *
+   * @param args Command line arguments
+   */
+  public static void main(final String[] args) {
+    final int size = 384;
+    final int scalar = 3;
+    double startTime;
+    double estimatedTime;
+    DecimalFormat timeFormat = new DecimalFormat("#0.00000");
+
+    // Generate input data
+    startTime = System.nanoTime();
+    final List<Integer> firstVector = randomData(size);
+    final List<Integer> secondVector = randomData(size);
+    estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+    System.out.println("Generating input data:\t\t\t\t"
+                         + timeFormat.format(estimatedTime)
+                         + "s");
+
+    // DFE Output
+    startTime = System.nanoTime();
+    final List<Integer> dataOutDfe = vectorAdditionDfe(
+        size, firstVector, secondVector, scalar);
+    estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+    System.out.println("DFE vector addition total time:\t\t\t"
+                         + timeFormat.format(estimatedTime) + "s");
+
+    // CPU Output
+    startTime = System.nanoTime();
+    final List<Integer> dataOutCpu = vectorAdditionCpu(
+        size, firstVector, secondVector, scalar);
+    estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+    System.out.println("CPU vector addition total time:\t\t\t"
+                         + timeFormat.format(estimatedTime) + "s");
+
+    // Checking results
+    startTime = System.nanoTime();
+    int status = check(dataOutDfe, dataOutCpu, size);
+    estimatedTime = (System.nanoTime() - startTime) / NUM_OF_NANO_SECONDS;
+    System.out.println("Checking results:\t\t\t\t\t"
+                         + timeFormat.format(estimatedTime) + "s");
+    if (status == 0) {
+      System.out.println("Test passed!");
+    } else {
+      System.out.println("Test failed " + status + " times!");
+      System.exit(-1);
+    }
+  }
 }
-
 

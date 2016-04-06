@@ -55,6 +55,38 @@ Create skin from **examples/Simple** directory with:
 ```bash
 maxskins --rb Simple.max
 ```
+
+### Create skin for C# 
+
+Create skin from **examples/Simple** directory with:
+
+```bash
+maxskins --csharp Simple.max
+```
+
+### Create skin for Go
+
+Create skin from **examples/Simple** directory with:
+
+```bash
+maxskins --go Simple.max
+```
+
+### Create skin for Perl
+
+Create skin from **examples/Simple** directory with:
+
+```bash
+maxskins --perl Simple.max
+```
+
+### Create skin for PHP
+
+Create skin from **examples/Simple** directory with:
+
+```bash
+maxskins --php Simple.max
+```
     
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory.    
 In the **client** directory there are Apache Thrift files necessary for client. 
@@ -100,6 +132,39 @@ Run the example from the **examples/Simple/client/rb/BasicStatic/** or **example
 
 ```bash
 ./SimpleClient.rb
+```
+
+### Run the C# example
+
+Run the example from the **examples/Simple/client/csharp/BasicStatic/** or **examples/Simple/client/csharp/AdvancedStatic/** or **examples/Simple/client/csharp/Dynamic/** directory with:
+
+```bash
+mcs /out:SimpleClient.exe SimpleClient.cs /recurse:../gen-csharp/com/maxeler/Simple/*.cs /r:$MONO_PATH/Thrift.dll
+mono SimpleClient.exe 
+```
+
+### Run the Go example
+
+Run the example from the **examples/Simple/client/go/BasicStatic/** or **examples/Simple/client/go/AdvancedStatic/** or **examples/Simple/client/go/Dynamic/** directory with:
+
+```bash
+go run SimpleClient.go
+```
+
+### Run the Perl example
+
+Run the example from the **examples/Simple/client/perl/BasicStatic/** or **examples/Simple/client/perl/AdvancedStatic/** or **examples/Simple/client/perl/Dynamic/** directory with:
+
+```bash
+perl SimpleClient.pl
+```
+
+### Run the PHP example
+
+Run the example from the **examples/Simple/client/php/BasicStatic/** or **examples/Simple/client/php/Dynamic/** directory with:
+
+```bash
+php ./SimpleClient.php
 ```
     
 **Note:** Examples can not be run if the server is not started. 

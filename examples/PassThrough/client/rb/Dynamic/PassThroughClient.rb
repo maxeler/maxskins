@@ -1,110 +1,159 @@
-#!/usr/bin/env ruby 
+#!/usr/bin/env ruby
 
-$:.push('../gen-rb')
+$LOAD_PATH.push('../gen-rb')
 
 require 'thrift'
 require 'pass_through_service'
 
 def check(data_out, expected, size)
-    status = 0
-    for i in 0..(size-1)
-        if (data_out[i] != expected[i])
-            puts "#{data_out[i]} != #{expected[i]}"
-            status = 1
-        end
+  status = 0
+  (0..(size - 1)).each do |i|
+    if data_out[i] != expected[i]
+      puts "#{data_out[i]} != #{expected[i]}"
+      status += 1
     end
-    return status
+  end
+  status
 end
 
-def PassThroughCPU(size, data_in, data_out)
-    for i in 0..(size-1)
-        data_out[i] = data_in[i]
-    end
+def pass_through_cpu(size, data_in, data_out)
+  (0..(size - 1)).each do |i|
+    data_out[i] = data_in[i]
+  end
 end
 
 begin
-    include Com::Maxeler::PassThrough
+  include Com::Maxeler::PassThrough
 
-    port = 9090
+  start_time = Time.now
+  start_dfe_time = start_time
 
-    # Make socket
-    transport = Thrift::BufferedTransport.new(Thrift::Socket.new('localhost', port))
+  port = 9090
 
-    # Wrap in a protocol
-    protocol = Thrift::BinaryProtocol.new(transport)
+  # Make socket
+  socket = Thrift::Socket.new('localhost', port)
 
-    # Create a client to use the protocol encoder
-    client = PassThroughService::Client.new(protocol)
+  # Buffering is critical. Raw sockets are very slow
+  transport = Thrift::BufferedTransport.new(socket)
 
-    # Connect!
-    transport.open()
- 
-    size = 384
-    size_bytes = 4 * size
+  # Wrap in a protocol
+  protocol = Thrift::BinaryProtocol.new(transport)
 
-    # Generate input
-    data_in = Array.new(size)
+  # Create a client to use the protocol encoder
+  client = PassThroughService::Client.new(protocol)
 
-    for i in 0..(size-1)
-        data_in[i] = i + 1
-    end
+  current_time = (Time.now - start_time).round(5)
+  puts "Creating a client:\t\t\t\t#{current_time}s"
 
-    # Initialize maxfile
-    max_file = client.PassThrough_init()
+  # Connect!
+  start_time = Time.now
+  transport.open
+  current_time = (Time.now - start_time).round(5)
+  puts "Opening connection:\t\t\t\t#{current_time}s"
 
-    # Load DFE
-    max_engine = client.max_load(max_file, '*')
+  # Generate input
+  start_time = Time.now
+  size = 384
+  size_bytes = 4 * size
 
-    # Allocate and send input streams to server
-    address_data_in = client.malloc_float(size)
-    client.send_data_float(address_data_in, data_in)
+  data_in = Array.new(size)
 
-    # Allocate memory for output stream on server
-    address_data_out = client.malloc_float(size)
+  (0..(size - 1)).each do |i|
+    data_in[i] = i + 1
+  end
+  current_time = (Time.now - start_time).round(5)
+  puts "Generating input data:\t\t\t\t#{current_time}s"
 
-    # Allocate memory for output stream on server
-    address_dataOut = client.malloc_float(size)
+  # Initialize maxfile
+  start_time = Time.now
+  max_file = client.PassThrough_init()
+  current_time = (Time.now - start_time).round(5)
+  puts "Initializing maxfile:\t\t\t\t#{current_time}s"
 
-    puts "Running DFE."
-    actions = client.max_actions_init(max_file, "default");
+  # Load DFE
+  start_time = Time.now
+  max_engine = client.max_load(max_file, '*')
+  current_time = (Time.now - start_time).round(5)
+  puts "Loading DFE:\t\t\t\t\t#{current_time}s"
 
-    client.max_set_param_uint64t(actions, "N", size);
-    client.max_queue_input(actions, "x", address_data_in, size_bytes);
-    client.max_queue_output(actions, "y", address_data_out, size_bytes);
+  # Allocate and send input streams to server
+  start_time = Time.now
+  address_data_in = client.malloc_float(size)
+  client.send_data_float(address_data_in, data_in)
+  current_time = (Time.now - start_time).round(5)
+  puts "Sending input data:\t\t\t\t#{current_time}s"
 
-    client.max_run(max_engine, actions);
+  # Allocate memory for output stream on server
+  start_time = Time.now
+  address_data_out = client.malloc_float(size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Allocating memory for output stream on server:\t#{current_time}s"
 
-    # Unload DFE
-    client.max_unload(max_engine)
+  # Action default
+  start_time = Time.now
+  actions = client.max_actions_init(max_file, 'default')
+  client.max_set_param_uint64t(actions, 'N', size)
+  client.max_queue_input(actions, 'x', address_data_in, size_bytes)
+  client.max_queue_output(actions, 'y', address_data_out, size_bytes)
+  client.max_run(max_engine, actions)
+  current_time = (Time.now - start_time).round(5)
+  puts "Pass through time:\t\t\t\t#{current_time}s"
 
-    # Get output stream from server
-    data_out = client.receive_data_float(address_data_out, size)
+  # Unload DFE
+  start_time = Time.now
+  client.max_unload(max_engine)
+  current_time = (Time.now - start_time).round(5)
+  puts "Unloading DFE:\t\t\t\t\t#{current_time}s"
 
-    # Free allocated memory for streams on server
-    client.free(address_data_in)
-    client.free(address_data_out)
+  # Get output stream from server
+  start_time = Time.now
+  data_out = client.receive_data_float(address_data_out, size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Getting output stream:\t(size = #{size * 32} bit)\t#{current_time}s"
 
-    # Free allocated maxfile data
-    client.PassThrough_free()
+  # Free allocated memory for streams on server
+  start_time = Time.now
+  client.free(address_data_in)
+  client.free(address_data_out)
+  current_time = (Time.now - start_time).round(5)
+  puts "Freeing allocated memory for streams on server:\t#{current_time}s"
 
-    # Close!
-    transport.close()
+  # Free allocated maxfile data
+  start_time = Time.now
+  client.PassThrough_free
+  current_time = (Time.now - start_time).round(5)
+  puts "Freeing allocated maxfile data:\t\t\t#{current_time}s"
 
-    # Checking results
-    expected = Array.new(size)
-    PassThroughCPU(size, data_in, expected)
+  # Close!
+  start_time = Time.now
+  transport.close
+  current_time = (Time.now - start_time).round(5)
+  puts "Closing connection:\t\t\t\t#{current_time}s"
 
-    status = check(data_out, expected, size)
+  current_time = (Time.now - start_dfe_time).round(5)
+  puts "DFE pass through total time:\t\t\t#{current_time}s"
 
-    if (status == 1)
-        puts "Test failed."
-        Kernel.exit(-1)
-    else
-        puts "Test passed!"
-    end
+  # CPU Output
+  start_time = Time.now
+  expected = Array.new(size)
+  pass_through_cpu(size, data_in, expected)
+  current_time = (Time.now - start_time).round(5)
+  puts "CPU pass through total time:\t\t\t#{current_time}s"
 
+  # Checking results
+  start_time = Time.now
+  status = check(data_out, expected, size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Checking results:\t\t\t\t#{current_time}s"
+
+  if status == 0
+    puts 'Test passed!'
+  else
+    puts "Test failed #{status} times!"
+    Kernel.exit(-1)
+  end
 
 rescue Thrift::Exception => thrift_exception
-    puts 'Thrift::Exception: ', thrift_exception.message, "\n"
-    Kernel.exit(-1)
+  puts 'Thrift::Exception: ', thrift_exception.message, "\n"
+  Kernel.exit(-1)
 end

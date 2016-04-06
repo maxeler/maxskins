@@ -1,51 +1,28 @@
 stages:
-    - lint
+    - lint-maxskins
     - unit-tests
     - build-image
+    - lint-examples  # build-image stage has to be finished first in order to generate 'gen-<language>' files necessary for examples.
     - e2e-tests
 
 pylint-maxskins:
     image: python:2.7
-    stage: lint
+    stage: lint-maxskins
     script:
-    - ./setup.py --quiet install
-    - pip install pylint --quiet
-    - pylint --rcfile=.pylintrc maxskins h2thrift *.py tests/*.py
+        - ./setup.py --quiet install
+        - pip install pylint --quiet
+        - pylint --rcfile=.pylintrc maxskins h2thrift e2e_test *.py tests/*.py
     tags:
         - docker
-
-pylint-examples:
-    image: python:2.7
-    stage: lint
-    script:
-    - ./setup.py --quiet install
-    - pip install thrift --quiet
-    - pip install pylint --quiet
-    - pylint --rcfile=.pylintrc examples/*/client/py/*/*.py
-    tags:
-        - docker
-    allow_failure: true
-
-
-rubocop-examples:
-    image: ruby:2.0.0
-    stage: lint
-    script:
-    - gem install thrift
-    - gem install rubocop
-    - rubocop --format simple
-    tags:
-        - docker
-    allow_failure: true
 
 unit-tests:
     image: python:2.7
     stage: unit-tests
     script:
-    - ./setup.py --quiet install
-    - pip install nose --quiet
-    - cd tests/
-    - nosetests -v --with-coverage --cover-min-percentage=100
+        - ./setup.py --quiet install
+        - pip install nose --quiet
+        - cd tests/
+        - nosetests -v --with-coverage --cover-min-percentage=100
     tags:
         - docker
 
@@ -63,384 +40,356 @@ build-image:
     tags:
         - docker build
 
+cpplint-examples:
+    image: registry:5000/maxskins:latest
+    stage: lint-examples
+    script:
+        - wget https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py
+        - python cpplint.py examples/*/client/cpp/AdvancedStatic/*.cpp
+        - python cpplint.py examples/*/client/cpp/BasicStatic/*.cpp
+        - python cpplint.py examples/*/client/cpp/Dynamic/*.cpp
+    tags:
+        - docker
+    allow_failure: true
+
+csharplint-examples:
+    image: registry:5000/maxskins:latest
+    stage: lint-examples
+    script:
+        - yum install yum-utils -y
+        - rpm --import "http://keyserver.ubuntu.com/pks/lookup?op=get&search=0x3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF"
+        - yum-config-manager --add-repo http://download.mono-project.com/repo/centos/
+        - yum remove *mono* -y
+        - yum install mono-complete -y
+        - yum install nuget -y
+        - git clone https://github.com/nelsonsar/StyleCop.Baboon.git
+        - cd StyleCop.Baboon/
+        - nuget restore
+        - xbuild "StyleCop.Baboon.sln"
+        - cd ../
+        - mono StyleCop.Baboon/StyleCop.Baboon/bin/Debug/StyleCop.Baboon.exe examples/*/client/csharp/*c/*.cs
+    tags:
+        - docker
+    allow_failure: true
+
+golint-examples:
+    image: golang:1.4.3
+    stage: lint-examples
+    script:
+        - go get git.apache.org/thrift.git/lib/go/thrift/...
+        - go get -u github.com/golang/lint/golint
+        - cd examples
+        - for i in $(ls); do
+        -     if [[ $i != *lib* ]] && [[ $i != *README* ]]; then
+        -         pushd $i/client/go
+        -         for j in $( ls ); do
+        -             if [[ $j != *gen* ]]; then
+        -                 golint $j/*.go
+        -             fi
+        -         done
+        -         popd
+        -     fi
+        - done
+    tags:
+        - docker
+    allow_failure: true
+
+javalint-examples:
+    image: registry:5000/maxskins:latest
+    stage: lint-examples
+    script:
+        - java -jar checkstyle.jar -c ./google_checks.xml examples/*/client/java/Dynamic/ examples/*/client/java/AdvancedStatic examples/*/client/java/BasicStatic/
+        - java -jar checkstyle.jar -c ./sun_checks.xml    examples/*/client/java/Dynamic/ examples/*/client/java/AdvancedStatic examples/*/client/java/BasicStatic/
+    tags:
+        - docker
+    allow_failure: true
+
+pylint-examples:
+    image: registry:5000/maxskins:latest
+    stage: lint-examples
+    script:
+        - ./setup.py --quiet install
+        - pip install thrift --quiet
+        - pip install pylint --quiet
+        - cd examples
+        - for i in $( ls ); do
+        -     if [[ $i != *lib* ]] && [[ $i != *README* ]]; then
+        -         pushd $i
+        -         if [[ $i != Correlation ]]; then
+        -             maxskins --py $i.max
+        -         else
+        -             maxskins --py correlation.max
+        -         fi
+        -         popd
+        -         pushd $i/client/py
+        -         for j in $( ls ); do
+        -             if [[ $j != *gen* ]]; then
+        -                  pylint --rcfile=../../../../.pylintrc $j/*.py
+        -             fi
+        -         done
+        -         popd
+        -     fi
+        - done
+    tags:
+        - docker
+
+rubocop-examples:
+    image: ruby:2.0.0
+    stage: lint-examples
+    script:
+        - gem install thrift
+        - gem install rubocop
+        - rubocop --format simple
+    tags:
+        - docker
+    allow_failure: true
+
 Simple:
-    image: registry:5000/maxskins
+    image: registry:5000/maxskins:latest
     stage: e2e-tests
     script:
-        - cd examples/Simple
-        - maxskins --py --cpp --rb --java Simple.max
-        - maxcompilersim restart
+        - export EXAMPLE=Simple
+        - export MAXFILE=Simple.max
+        - export CPP=Simple_client
+        - export CSHARP=SimpleClient.cs
+        - export ERLANG=simpleClient.erl
+        - export GOLANG=SimpleClient.go
+        - export HASKELL=SimpleClient.hs
+        - export PERL=SimpleClient.pl
+        - export PHP=SimpleClient.php
+        - export PYTHON=SimpleClient.py
+        - export RUBY=SimpleClient.rb
+        - export SERVER=$(pwd)/examples/Simple/server/Simple_server
+        - export PORT=9090
+        - export CARD=VECTIS
         - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
         - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
         - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
-        - pushd client/py
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/Simple_server 9090 & PID=$!
-        -         ./SimpleClient.py
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/rb
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/Simple_server 9090 & PID=$!
-        -         ./SimpleClient.rb
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/java
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/Simple_server 9090 & PID=$!
-        -         ant
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/cpp
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/Simple_server 9090 & PID=$!
-        -         make
-        -         ./Simple_client
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
+        - ./e2e_test
     tags:
         - docker
 
 MovingAverage:
-    image: registry:5000/maxskins
+    image: registry:5000/maxskins:latest
     stage: e2e-tests
     script:
-        - cd examples/MovingAverage
-        - maxskins --py --cpp --rb --java --csharp --php --perl --go MovingAverage.max
-        - maxcompilersim restart
+        - export EXAMPLE=MovingAverage
+        - export MAXFILE=MovingAverage.max
+        - export CPP=MovingAverage_client
+        - export CSHARP=MovingAverageClient.cs
+        - export ERLANG=movingAverageClient.erl
+        - export GOLANG=MovingAverageClient.go
+        - export HASKELL=MovingAverageClient.hs
+        - export PERL=MovingAverageClient.pl
+        - export PHP=MovingAverageClient.php
+        - export PYTHON=MovingAverageClient.py
+        - export RUBY=MovingAverageClient.rb
+        - export SERVER=$(pwd)/examples/MovingAverage/server/MovingAverage_server
+        - export PORT=9090
+        - export CARD=VECTIS
         - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
         - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
         - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
-        - pushd client/py
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/MovingAverage_server 9090 & PID=$!
-        -         ./MovingAverageClient.py
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/rb
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/MovingAverage_server 9090 & PID=$!
-        -         ./MovingAverageClient.rb
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/cpp
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/MovingAverage_server 9090 & PID=$!
-        -         make
-        -         ./MovingAverage_client
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/java
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/MovingAverage_server 9090 & PID=$!
-        -         ant
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/csharp
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/MovingAverage_server 9090 & PID=$!
-        -         mcs /out:MovingAverageClient.exe MovingAverageClient.cs /recurse:../gen-csharp/com/maxeler/MovingAverage/*.cs /r:$MONO_PATH/Thrift.dll
-        -         mono MovingAverageClient.exe
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/php
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/MovingAverage_server 9090 & PID=$!
-        -         php ./MovingAverageClient.php
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/go
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/MovingAverage_server 9090 & PID=$!
-        -         go run MovingAverageClient.go
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/perl
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/MovingAverage_server 9090 & PID=$!
-        -         perl MovingAverageClient.pl
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
+        - ./e2e_test
     tags:
         - docker
 
 PassThrough:
-    image: registry:5000/maxskins
+    image: registry:5000/maxskins:latest
     stage: e2e-tests
     script:
-        - cd examples/PassThrough
-        - maxskins --py --cpp --rb --java PassThrough.max
-        - maxcompilersim restart
+        - export EXAMPLE=PassThrough
+        - export MAXFILE=PassThrough.max
+        - export CPP=PassThrough_client
+        - export CSHARP=PassThroughClient.cs
+        - export ERLANG=passThroughClient.erl
+        - export GOLANG=PassThroughClient.go
+        - export HASKELL=PassThroughClient.hs
+        - export PERL=PassThroughClient.pl
+        - export PHP=PassThroughClient.php
+        - export PYTHON=PassThroughClient.py
+        - export RUBY=PassThroughClient.rb
+        - export SERVER=$(pwd)/examples/PassThrough/server/PassThrough_server
+        - export PORT=9090
+        - export CARD=VECTIS
         - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
         - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
         - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
-        - pushd client/py
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/PassThrough_server 9090 & PID=$!
-        -         ./PassThroughClient.py
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/rb
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/PassThrough_server 9090 & PID=$!
-        -         ./PassThroughClient.rb
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/java
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/PassThrough_server 9090 & PID=$!
-        -         ant
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/cpp
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/PassThrough_server 9090 & PID=$!
-        -         make
-        -         ./PassThrough_client
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-    tags:
-        - docker
-
-Correlation:
-    image: registry:5000/maxskins
-    stage: e2e-tests
-    script:
-        - cd examples/Correlation
-        - maxskins --py --cpp --java correlation.max
-        - maxcompilersim -c ISCA restart
-        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
-        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
-        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
-        - pushd client/py
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/correlation_server 9090 & PID=$!
-        -         ./correlation.py
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/cpp
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/correlation_server 9090 & PID=$!
-        -         make
-        -         ./Correlation_client
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/java
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/correlation_server 9090 & PID=$!
-        -         ant
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
+        - ./e2e_test
     tags:
         - docker
 
 LMemLoopback:
-    image: registry:5000/maxskins
+    image: registry:5000/maxskins:latest
     stage: e2e-tests
     script:
-        - cd examples/LMemLoopback
-        - maxskins --py --cpp --rb --java LMemLoopback.max
-        - maxcompilersim restart
+        - export EXAMPLE=LMemLoopback
+        - export MAXFILE=LMemLoopback.max
+        - export CPP=LMemLoopback_client
+        - export CSHARP=LMemLoopbackClient.cs
+        - export ERLANG=lMemLoopbackClient.erl
+        - export GOLANG=LMemLoopbackClient.go
+        - export HASKELL=LMemLoopbackClient.hs
+        - export PERL=LMemLoopbackClient.pl
+        - export PHP=LMemLoopbackClient.php
+        - export PYTHON=LMemLoopbackClient.py
+        - export RUBY=LMemLoopbackClient.rb
+        - export SERVER=$(pwd)/examples/LMemLoopback/server/LMemLoopback_server
+        - export PORT=9090
+        - export CARD=VECTIS
         - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
         - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
         - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
-        - pushd client/py
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/LMemLoopback_server 9090 & PID=$!
-        -         ./LMemLoopbackClient.py
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/rb
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/LMemLoopback_server 9090 & PID=$!
-        -         ./LMemLoopbackClient.rb
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/java
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/LMemLoopback_server 9090 & PID=$!
-        -         ant
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/cpp
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/LMemLoopback_server 9090 & PID=$!
-        -         make
-        -         ./LMemLoopback_client
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
+        - ./e2e_test
     tags:
         - docker
 
 VectorAddition:
-    image: registry:5000/maxskins
+    image: registry:5000/maxskins:latest
     stage: e2e-tests
     script:
-        - cd examples/VectorAddition
-        - maxskins --py --cpp --rb --java VectorAddition.max
-        - maxcompilersim -c MAIA restart
+        - export EXAMPLE=VectorAddition
+        - export MAXFILE=VectorAddition.max
+        - export CPP=VectorAddition_client
+        - export CSHARP=VectorAdditionClient.cs
+        - export ERLANG=vectorAdditionClient.erl
+        - export GOLANG=VectorAdditionClient.go
+        - export HASKELL=VectorAdditionClient.hs
+        - export PERL=VectorAdditionClient.pl
+        - export PHP=VectorAdditionClient.php
+        - export PYTHON=VectorAdditionClient.py
+        - export RUBY=VectorAdditionClient.rb
+        - export SERVER=$(pwd)/examples/VectorAddition/server/VectorAddition_server
+        - export PORT=9090
+        - export CARD=MAIA
         - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
         - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
         - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
-        - pushd client/py
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/VectorAddition_server 9090 & PID=$!
-        -         ./VectorAdditionClient.py
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/rb
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/VectorAddition_server 9090 & PID=$!
-        -         ./VectorAdditionClient.rb
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/java
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/VectorAddition_server 9090 & PID=$!
-        -         ant
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
-        - pushd client/cpp
-        - for i in $( ls ); do 
-        -     if [[ $i != *gen* ]]; then 
-        -         pushd $i
-        -         ../../../server/VectorAddition_server 9090 & PID=$!
-        -         make
-        -         ./VectorAddition_client
-        -         kill $PID
-        -         popd
-        -     fi
-        - done
-        - popd
+        - ./e2e_test
     tags:
         - docker
+
+Correlation:
+    image: registry:5000/maxskins:latest
+    stage: e2e-tests
+    script:
+        - EXAMPLE=Correlation
+        - MAXFILE=correlation
+        - ERLANG_NAME=correlation
+        - SERVER=$(pwd)/examples/${EXAMPLE}/server/${MAXFILE}_server
+        - cd examples/${EXAMPLE}
+        - for language in $(ls client); do 
+        -   maxskins --${language} ${MAXFILE}.max
+        - done
+        - maxcompilersim -c ISCA restart
+        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+        - cd client
+        - for language in $(ls); do 
+        -   pushd ${language}
+        -   for skin in $(ls); do 
+        -     if [[ ${skin} != gen-${language} ]]; then 
+        -       pushd ${skin}
+        -       ${SERVER} 9090 & PID=$!
+        -       if [[ ${language} == cpp ]]; then 
+        -         make
+        -         ./correlation_client 10 120
+        -       elif [[ ${language} == csharp ]]; then 
+        -         mcs /out:${EXAMPLE}Client.exe ${EXAMPLE}Client.cs /recurse:../gen-csharp/com/maxeler/correlation/*.cs /r:$MONO_PATH/Thrift.dll
+        -         mono ${EXAMPLE}Client.exe 10 120
+        -       elif [[ ${language} == erl ]]; then 
+        -         erlc -I $EINCLUDEPATH -I $EBINPATH -I ../gen-erl/ -o ../gen-erl/ ../gen-erl/*.erl
+        -         erlc -I $EINCLUDEPATH -I ../gen-erl/ ${ERLANG_NAME}.erl
+        -         erl -pa $EBINPATH -pa ../gen-erl/ -noshell -s ${ERLANG_NAME} t 150 250 -s init stop
+        -       elif [[ ${language} == go ]]; then
+        -         go build ${EXAMPLE}Client.go
+        -         ./${EXAMPLE}Client 10 120
+        -       elif [[ ${language} == hs ]]; then 
+        -         ghc -i$HASKELLPATH -o ${EXAMPLE}Client ${EXAMPLE}Client.hs
+        -         ./${EXAMPLE}Client 10 120
+        -       elif [[ ${language} == java ]]; then 
+        -         ant -DstreamSize=10 -DnumberOfStreams=120
+        -       elif [[ ${language} == perl ]]; then 
+        -         perl ${EXAMPLE}Client.pl 10 120
+        -       elif [[ ${language} == php ]]; then 
+        -         php ${EXAMPLE}Client.php 10 120
+        -       elif [[ ${language} == py ]]; then 
+        -         ./${EXAMPLE}Client.py 10 120
+        -       elif [[ ${language} == rb ]]; then 
+        -         ./${EXAMPLE}Client.rb 10 120
+        -       fi
+        -       kill $PID
+        -       popd
+        -     fi
+        -   done
+        -   popd
+        - done
+    tags:
+        - docker
+
+SignExt:
+    image: registry:5000/maxskins:latest
+    stage: e2e-tests
+    script:
+        - EXAMPLE=SignExt
+        - MAXFILE=SignExt
+        - ERLANG_NAME=signExt
+        - SERVER=$(pwd)/examples/${EXAMPLE}/server/${MAXFILE}_server
+        - cd examples/${EXAMPLE}
+        - for language in $(ls client); do 
+        -   maxskins --${language} ${MAXFILE}.max
+        - done
+        - maxcompilersim -c ISCA -e QSFP_TOP_10G_PORT1:172.16.50.10:255.255.255.0 -p QSFP_TOP_10G_PORT1:top1.pcap restart
+        - export MAXELEROSDIR=$MAXCOMPILERDIR/lib/maxeleros-sim
+        - export LD_PRELOAD=$MAXELEROSDIR/lib/libmaxeleros.so:$LD_PRELOAD
+        - export SLIC_CONF="$SLIC_CONF;use_simulation=sim"
+        - ./sender/build.py
+        - cd client
+        - for language in $(ls); do 
+        -   pushd ${language}
+        -   for skin in $(ls); do 
+        -     if [[ ${skin} != gen-${language} ]]; then 
+        -       pushd ${skin}
+        -       ${SERVER} 9090 & PID=$!
+        -       if [[ ${language} == cpp ]]; then 
+        -         make
+        -         ./${EXAMPLE}_client 172.16.50.1 172.16.50.10 &
+        -       elif [[ ${language} == csharp ]]; then 
+        -         mcs /out:${EXAMPLE}.exe ${EXAMPLE}.cs /recurse:../gen-csharp/com/maxeler/${EXAMPLE}/*.cs /r:$MONO_PATH/Thrift.dll
+        -         mono ${EXAMPLE}.exe 172.16.50.1 172.16.50.10 &
+        -       elif [[ ${language} == erl ]]; then 
+        -         erlc -I $EINCLUDEPATH -I $EBINPATH -I ../gen-erl/ -o ../gen-erl/ ../gen-erl/*.erl
+        -         erlc -I $EINCLUDEPATH -I ../gen-erl/ ${ERLANG_NAME}.erl
+        -         erl -pa $EBINPATH -pa ../gen-erl/ -noshell -run ${ERLANG_NAME} t 172.16.50.1 172.16.50.10 -s init stop &
+        -       elif [[ ${language} == go ]]; then 
+        -         go build ${EXAMPLE}.go
+        -         ./${EXAMPLE} 172.16.50.1 172.16.50.10 &
+        -       elif [[ ${language} == hs ]]; then 
+        -         ghc -i$HASKELLPATH -o ${EXAMPLE} ${EXAMPLE}.hs
+        -         ./${EXAMPLE} 172.16.50.1 172.16.50.10 &
+        -       elif [[ ${language} == java ]]; then 
+        -         ant -Darg1=172.16.50.1 -Darg2=172.16.50.10 &
+        -         sleep 40  # some time is needed to build the solution
+        -       elif [[ ${language} == perl ]]; then 
+        -         perl ${EXAMPLE}.pl 172.16.50.1 172.16.50.10 &
+        -       elif [[ ${language} == php ]]; then 
+        -         php ${EXAMPLE}.php 172.16.50.1 172.16.50.10 &
+        -       elif [[ ${language} == py ]]; then 
+        -         ./${EXAMPLE}.py 172.16.50.1 172.16.50.10 &
+        -       elif [[ ${language} == rb ]]; then 
+        -         ruby ${EXAMPLE}.rb 172.16.50.1 172.16.50.10 &
+        -       fi
+        -       sleep 2  # server has to connect to thrift
+        -       ../../../sender/sender
+        -       ../../../sender/sender end
+        -       sleep 2  # server has to receive data before it is killed
+        -       kill $PID
+        -       popd
+        -     fi
+        -   done
+        -   popd
+        - done
+    tags:
+        - docker
+

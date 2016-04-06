@@ -93,7 +93,7 @@ def prepare_for_parsing(code):
     """
     # remove empty lines and comments
     code = '\n'.join([line for line in code.splitlines()
-                      if not '#' in line
+                      if '#' not in line
                       if line != ''])
 
     # remove excess spaces

@@ -16,6 +16,8 @@
      #      event_arg
      #      >>> print template.render(name = '__sigmask')
      #      arg__sigmask
+     #      >>> print template.render(name = 'rem')
+     #      rem_arg
      #      >>> print template.render(name = 'data')
      #      data
     ##}
@@ -25,6 +27,8 @@
         event_arg                                     {# event is a key word in csharp #}
     {%- elif '_' == name[0] -%}
         arg{{name}}                                   {# names can't start with _ in Ruby #}
+    {%- elif name == 'rem' -%}
+        rem_arg                                       {# rem is operator in Erlang #}
     {%- else -%}
         {{name}}
     {%- endif -%}
@@ -54,6 +58,30 @@
     {%- endif -%}
 
     {{name|replace('const ','')|replace(' ','_')}}
+{%- endmacro -%}
+
+{%- macro valid_type_name (name) -%}
+    {##
+     #  Transforms type name to valid type.
+     #
+     #  Input:
+     #      name -- name of type
+     #
+     #  Output:
+     #      Valid type name.
+     #
+     #  Example:
+     #      >>> template = Template('{{valid_struct_name(name)}}')
+     #      >>> print template.render(name = 'typedef __int')
+     #      type__int_type
+     #      >>> print template.render(name = 'int')
+     #      int_type
+    ##}
+    {%- if '_' == name[0] -%}
+        {%- set name = 'type' + name -%}            {# names can't start with _ in Haskell #}
+    {%- endif -%}
+
+    {{name}}
 {%- endmacro -%}
 
 {%- macro valid_c_struct_member_name (name) -%}
@@ -150,7 +178,7 @@
     {%- elif type in data.structs|map(attribute = 'name') -%} 
         {{type|replace(' ','_')}}_struct&
     {%- elif type in data.typedefs|map(attribute='name') -%} 
-        {{type}}_type
+        {{valid_type_name(type)}}_type
     {%- else -%} 
         remote_ptrTODO
     {%- endif -%}

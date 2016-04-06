@@ -24,7 +24,7 @@
     <path refid="build.classpath" />
     <pathelement path="${build}" />
   </path>
-  
+
   <target name="init">
     <tstamp />
     <mkdir dir="${build}"/>
@@ -34,13 +34,14 @@
     <javac srcdir="${gen}" destdir="${build}" classpathref="libs.classpath" />
     <javac srcdir="${src}" destdir="${build}" classpathref="build.classpath" />
   </target>
- 
+
   <target name="CorrelationClient" description="Run Correlation Client" depends="compile">
     <java classname="CorrelationClient"
       classpathref="correlation.classpath" failonerror="true">
+      <arg line="${streamSize} ${numberOfStreams}"/>
     </java>
   </target>
- 
+
   <target name="clean">
     <delete dir="${build}" />
   </target>

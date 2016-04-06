@@ -28,6 +28,20 @@ export PERL5LIB=<maxskins_dir>/examples/lib/perl/
 ### Before running PHP examples
 
 ```bash
-export PHP_THRIFT_LIB=<maxskins_dir>/maxskins/examples/lib/php
+export PHP_THRIFT_LIB=<maxskins_dir>/examples/lib/php
 ```
 
+### Before running HASKELL examples
+
+```bash
+export HASKELLPATH=../gen-hs/:<maxskins_dir>/examples/lib/hs
+```
+
+### Before running ERLANG examples
+
+```bash
+export EBINPATH=/opt/maxskins/examples/lib/erl/ebin/
+export EINCLUDEPATH=/opt/maxskins/examples/lib/erl/include/
+mkdir $EBINPATH && \
+erlc -I $EINCLUDEPATH -o $EBINPATH /opt/maxskins/examples/lib/erl/src/*.erl
+```

@@ -6,7 +6,8 @@ import contextlib
 
 VERSION = '0.1.3'
 COMMON_DIR = os.path.dirname(os.path.realpath(__file__))
-TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
+TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            'templates')
 
 @contextlib.contextmanager
 def change_working_directory(new_path):

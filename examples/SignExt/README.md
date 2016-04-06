@@ -52,6 +52,70 @@ Create skin from **examples/SignExt** directory with:
 ```bash
 maxskins --py SignExt.max
 ```
+
+### Create skin for Java
+
+Create skin from **examples/SignExt** directory with:
+
+```bash
+maxskins --java SignExt.max
+```
+
+### Create skin for C++ 
+
+Create skin from **examples/SignExt** directory with:
+
+```bash
+maxskins --cpp SignExt.max
+```
+
+### Create skin for C# 
+
+Create skin from **examples/SignExt** directory with:
+
+```bash
+maxskins --csharp SignExt.max
+```
+
+### Create skin for Go 
+
+Create skin from **examples/SignExt** directory with:
+
+```bash
+maxskins --go SignExt.max
+```
+    
+### Create skin for Perl 
+
+Create skin from **examples/SignExt** directory with:
+
+```bash
+maxskins --perl SignExt.max
+```
+
+### Create skin for Ruby 
+
+Create skin from **examples/SignExt** directory with:
+
+```bash
+maxskins --rb SignExt.max
+```
+
+### Create skin for Erlang 
+
+Create skin from **examples/SignExt** directory with:
+
+```bash
+maxskins --erl SignExt.max
+```
+
+### Create skin for Haskell 
+
+Create skin from **examples/SignExt** directory with:
+
+```bash
+maxskins --hs SignExt.max
+```
     
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory. 
 In the **client** directory there are Apache Thrift files necessary for client. 
@@ -84,6 +148,75 @@ Run the example from the **examples/SignExt/client/py/Dynamic/** directory with:
 ./signext.py 172.16.50.1 172.16.50.10
 ```
 
+### Run the Java example
+
+Run the example from the **examples/SignExt/client/java/Dynamic/** directory with:
+
+```bash
+ant -Darg1=172.16.50.1 -Darg2=172.16.50.10
+```
+
+### Run the C++ example
+
+Run the example from the **examples/SignExt/client/cpp/Dynamic/** directory with:
+
+```bash
+make
+./SignExt_client 172.16.50.1 172.16.50.10
+```
+
+### Run the C# example
+
+Run the example from the **examples/SignExt/client/csharp/Dynamic/** directory with:
+
+```bash
+mcs /out:SignExt.exe SignExt.cs /recurse:../gen-csharp/com/maxeler/SignExt/*.cs /r:$MONO_PATH/Thrift.dll
+mono SignExt.exe 172.16.50.1 172.16.50.10
+```
+
+### Run the Go example
+
+Run the example from the **examples/SignExt/client/go/Dynamic/** directory with:
+
+```bash
+go run SignExt.go 172.16.50.1 172.16.50.10
+```
+
+### Run the Perl example
+
+Run the example from the **examples/SignExt/client/perl/Dynamic/** directory with:
+
+```bash
+perl SignExt.pl 172.16.50.1 172.16.50.10
+```
+
+### Run the Ruby example
+
+Run the example from the **examples/SignExt/client/rb/Dynamic/** directory with:
+
+```bash
+ruby SignExt.rb 172.16.50.1 172.16.50.10
+```
+
+### Run the Erlang example
+
+Run the example from the **examples/SignExt/client/erl/Dynamic/** directory with:
+
+```bash
+erlc -I $EINCLUDEPATH -I $EBINPATH -I ../gen-erl/ -o ../gen-erl/ ../gen-erl/*.erl
+erlc -I $EINCLUDEPATH -I ../gen-erl/ signExt.erl
+erl -pa $EBINPATH -pa ../gen-erl/ -noshell -run signExt t 172.16.50.1 172.16.50.10 -s init stop
+```
+
+### Run the Haskell example
+
+Run the example from the **examples/SignExt/client/hs/Dynamic/** directory with:
+
+```bash
+ghc -i$HASKELLPATH -o SignExt SignExt.hs
+./SignExt 172.16.50.1 172.16.50.10
+```
+
 Then open a new terminal and inject some packets:
 
 ```bash
@@ -106,7 +239,12 @@ Frame [2] Word[1]: 0x78
 Frame [2] Word[2]: 0xff818283
 ```
 
-The application will continue to wait for more packets, so when you are finished, hit <kbd>ctrl</kbd> + <kbd>c</kbd> to exit.
+The application will continue to wait for more packets, so when you are finished, inject packets with:
+
+```bash
+$ ./sender/sender end
+Sender finished
+```
     
 **Note:** Examples can not be run if the server is not started. 
 

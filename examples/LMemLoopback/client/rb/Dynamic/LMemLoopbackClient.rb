@@ -1,126 +1,194 @@
-#!/usr/bin/env ruby 
+#!/usr/bin/env ruby
 
-$:.push('../gen-rb')
+$LOAD_PATH.push('../gen-rb')
 
 require 'thrift'
 require 'l_mem_loopback_service'
 
-def check(size, outData, inA, inB)
-    status = 0;
-    for i in 0..(size-1)
-        if (outData[i] != inA[i] + inB[i])
-            puts outData[i].to_s + " != " + inA[i].to_s + " + " + inB[i].to_s;
-            status = 1
-        end
+def check(data_out, expected, size)
+  status = 0
+  (0..(size - 1)).each do |i|
+    if data_out[i] != expected[i]
+      puts "#{data_out[i]} != #{expected[i]}"
+      status += 1
     end
-    return status
+  end
+  status
+end
+
+def lmem_loopback_cpu(in_a, in_b, size, data_out)
+  (0..(size - 1)).each do |i|
+    data_out[i] = (in_a[i] + in_b[i])
+  end
 end
 
 begin
 
-    include Com::Maxeler::LMemLoopback
+  include Com::Maxeler::LMemLoopback
 
-    port = 9090
+  start_time = Time.now
+  start_dfe_time = start_time
 
-    # Make socket
-    transport = Thrift::BufferedTransport.new(Thrift::Socket.new('localhost', port))
+  port = 9090
 
-    # Wrap in a protocol
-    protocol = Thrift::BinaryProtocol.new(transport)
+  # Make socket
+  socket = Thrift::Socket.new('localhost', port)
 
-    # Create a client to use the protocol encoder
-    client = LMemLoopbackService::Client.new(protocol)
+  # Buffering is critical. Raw sockets are very slow
+  transport = Thrift::BufferedTransport.new(socket)
 
-    # Connect!
-    transport.open()
- 
-    size = 384
-    sizeBytes = size * 4     
+  # Wrap in a protocol
+  protocol = Thrift::BinaryProtocol.new(transport)
 
-    # Generate input
-    inA = Array.new(size)
-    inB = Array.new(size)
+  # Create a client to use the protocol encoder
+  client = LMemLoopbackService::Client.new(protocol)
+  current_time = (Time.now - start_time).round(5)
+  puts "Creating a client:\t\t\t\t#{current_time}s"
 
-    for i in 0..(size-1)
-        inA[i] = i
-        inB[i] = size - i
-    end
+  # Connect!
+  start_time = Time.now
+  transport.open
+  current_time = (Time.now - start_time).round(5)
+  puts "Opening connection:\t\t\t\t#{current_time}s"
 
-    # Initialize maxfile
-    max_file = client.LMemLoopback_init()
+  size = 384
+  size_bytes = size * 4
 
-    # Load DFE
-    max_engine = client.max_load(max_file, '*')
+  # Generate input
+  start_time = Time.now
+  in_a = Array.new(size)
+  in_b = Array.new(size)
 
-    # Allocate and send input streams to server
-    address_inA = client.malloc_int32_t(size)
-    client.send_data_int32_t(address_inA, inA)
+  (0..(size - 1)).each do |i|
+    in_a[i] = i
+    in_b[i] = size - i
+  end
+  current_time = (Time.now - start_time).round(5)
+  puts "Generating input data:\t\t\t\t#{current_time}s"
 
-    address_inB = client.malloc_int32_t(size)
-    client.send_data_int32_t(address_inB, inB)
+  # Initialize maxfile
+  start_time = Time.now
+  max_file = client.LMemLoopback_init
+  current_time = (Time.now - start_time).round(5)
+  puts "Initializing maxfile:\t\t\t\t#{current_time}s"
 
-    # Allocate memory for output stream on server
-    address_outData = client.malloc_int32_t(size)
+  # Load DFE
+  start_time = Time.now
+  max_engine = client.max_load(max_file, '*')
+  current_time = (Time.now - start_time).round(5)
+  puts "Loading DFE:\t\t\t\t\t#{current_time}s"
 
-    puts "Loading DFE memory."
-    actions = client.max_actions_init(max_file, "writeLMem");
-    client.max_set_param_uint64t(actions, "address", 0);
-    client.max_set_param_uint64t(actions, "nbytes", sizeBytes);
-    client.max_queue_input(actions, "cpu_to_lmem", address_inA, sizeBytes);
+  # Allocate and send input streams to server
+  start_time = Time.now
+  address_in_a = client.malloc_int32_t(size)
+  client.send_data_int32_t(address_in_a, in_a)
 
-    client.max_run(max_engine, actions);
+  address_in_b = client.malloc_int32_t(size)
+  client.send_data_int32_t(address_in_b, in_b)
+  current_time = (Time.now - start_time).round(5)
+  puts "Allocating memory for output stream on server:\t#{current_time}s"
 
-    actions = client.max_actions_init(max_file, "writeLMem");
-    client.max_set_param_uint64t(actions, "address", sizeBytes);
-    client.max_set_param_uint64t(actions, "nbytes", sizeBytes);
-    client.max_queue_input(actions, "cpu_to_lmem", address_inB, sizeBytes);
+  # Allocate memory for output stream on server
+  start_time = Time.now
+  address_out_data = client.malloc_int32_t(size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Sending input data:\t\t\t\t#{current_time}s"
 
-    client.max_run(max_engine, actions);
+  # Write to LMem
+  start_time = Time.now
+  actions = client.max_actions_init(max_file, 'writeLMem')
+  client.max_set_param_uint64t(actions, 'address', 0)
+  client.max_set_param_uint64t(actions, 'nbytes', size_bytes)
+  client.max_queue_input(actions, 'cpu_to_lmem', address_in_a, size_bytes)
 
-    puts "Running DFE."
-    actions = client.max_actions_init(max_file, "default");
-    client.max_set_param_uint64t(actions, "N", size);
+  client.max_run(max_engine, actions)
 
-    client.max_run(max_engine, actions);
+  actions = client.max_actions_init(max_file, 'writeLMem')
+  client.max_set_param_uint64t(actions, 'address', size_bytes)
+  client.max_set_param_uint64t(actions, 'nbytes', size_bytes)
+  client.max_queue_input(actions, 'cpu_to_lmem', address_in_b, size_bytes)
 
-    puts "Reading DFE memory."
-    actions = client.max_actions_init(max_file, "readLMem");
-    client.max_set_param_uint64t(actions, "address", 2 * sizeBytes);
-    client.max_set_param_uint64t(actions, "nbytes", sizeBytes);
-    client.max_queue_output(actions, "lmem_to_cpu", address_outData, sizeBytes);    
+  client.max_run(max_engine, actions)
+  current_time = (Time.now - start_time).round(5)
+  puts "Writing to LMem:\t\t\t\t#{current_time}s"
 
-    client.max_run(max_engine, actions);
+  # Action default
+  start_time = Time.now
+  actions = client.max_actions_init(max_file, 'default')
+  client.max_set_param_uint64t(actions, 'N', size)
 
+  client.max_run(max_engine, actions)
+  current_time = (Time.now - start_time).round(5)
+  puts "LMemLoopback time:\t\t\t\t#{current_time}s"
 
-    # Unload DFE
-    client.max_unload(max_engine)
+  # Read from LMem
+  start_time = Time.now
+  actions = client.max_actions_init(max_file, 'readLMem')
+  client.max_set_param_uint64t(actions, 'address', 2 * size_bytes)
+  client.max_set_param_uint64t(actions, 'nbytes', size_bytes)
+  client.max_queue_output(actions, 'lmem_to_cpu', address_out_data, size_bytes)
 
-    # Get output stream from server
-    outData = client.receive_data_int32_t(address_outData, size)
+  client.max_run(max_engine, actions)
+  current_time = (Time.now - start_time).round(5)
+  puts "Reading from LMem:\t\t\t\t#{current_time}s"
 
-    # Free allocated memory for streams on server
-    client.free(address_inA)
-    client.free(address_inB)
-    client.free(address_outData)
+  # Unload DFE
+  start_time = Time.now
+  client.max_unload(max_engine)
+  current_time = (Time.now - start_time).round(5)
+  puts "Unloading DFE:\t\t\t\t\t#{current_time}s"
 
-    # Free allocated maxfile data
-    client.LMemLoopback_free()
+  # Get output stream from server
+  start_time = Time.now
+  out_data = client.receive_data_int32_t(address_out_data, size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Getting output stream:\t(size = #{size * 32} bit)\t#{current_time}s"
 
-    # Close!
-    transport.close()
+  # Free allocated memory for streams on server
+  start_time = Time.now
+  client.free(address_in_a)
+  client.free(address_in_b)
+  client.free(address_out_data)
+  client.free(actions)
+  current_time = (Time.now - start_time).round(5)
+  puts "Freeing allocated memory for streams on server:\t#{current_time}s"
 
-    # Checking results
-    status = check(size, outData, inA, inB);
+  # Free allocated maxfile data
+  start_time = Time.now
+  client.LMemLoopback_free
+  current_time = (Time.now - start_time).round(5)
+  puts "Freeing allocated maxfile data:\t\t\t#{current_time}s"
 
-    if (status == 1)
-        puts "Test failed."
-        Kernel.exit(-1)
-    else
-        puts "Test passed!"
-    end
+  # Close!
+  start_time = Time.now
+  transport.close
+  current_time = (Time.now - start_time).round(5)
+  puts "Closing connection:\t\t\t\t#{current_time}s"
 
+  current_time = (Time.now - start_dfe_time).round(5)
+  puts "DFE LMemLoopback total time:\t\t\t#{current_time}s"
+
+  # CPU Output
+  start_time = Time.now
+  expected = Array.new(size)
+  lmem_loopback_cpu(in_b, in_a, size, expected)
+  current_time = (Time.now - start_time).round(5)
+  puts "CPU LMemLoopback total time:\t\t\t#{current_time}s"
+
+  # Checking results
+  start_time = Time.now
+  status = check(out_data, expected, size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Checking results:\t\t\t\t#{current_time}s"
+
+  if status == 0
+    puts 'Test passed!'
+  else
+    puts "Test failed #{status} times!"
+    Kernel.exit(-1)
+  end
 
 rescue Thrift::Exception => tx
-    puts 'Thrift::Exception: ', tx.message, "\n"
-    Kernel.exit(-1)
+  puts 'Thrift::Exception: ', tx.message, '\n'
+  Kernel.exit(-1)
 end

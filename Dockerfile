@@ -10,7 +10,7 @@ RUN yum -y install lapack bla
 
 RUN yum -y update
 
-RUN yum install -y wget ant
+RUN yum install -y wget which ant
 
 ADD maxcompiler-*-installer.tar.gz /
 RUN cd maxcompiler-*-full-installer && \
@@ -54,6 +54,15 @@ RUN yum install -y go
 # Perl dependencies
 RUN yum -y install perl perl-Bit-Vector perl-Class-Accessor
 
+# Haskell dependencies
+RUN yum install -y haskell-platform
+
+# Erlang dependencies
+RUN wget http://packages.erlang-solutions.com/erlang-solutions-1.0-1.noarch.rpm && \
+    rpm -Uvh erlang-solutions-1.0-1.noarch.rpm && \
+    rm -f erlang-solutions-1.0-1.noarch.rpm && \
+    yum install -y erlang
+
 # Install Thrift
 RUN yum -y install thrift.x86_64 thrift-devel.x86_64
 
@@ -74,5 +83,11 @@ ENV GOPATH=/opt/maxskins/examples/lib/go
 ENV MONO_PATH=/opt/maxskins/examples/lib/csharp/
 ENV PERL5LIB=/opt/maxskins/examples/lib/perl/
 ENV PHP_THRIFT_LIB=/opt/maxskins/examples/lib/php
+ENV HASKELLPATH=../gen-hs/:/opt/maxskins/examples/lib/hs/
+ENV EBINPATH=/opt/maxskins/examples/lib/erl/ebin/
+ENV EINCLUDEPATH=/opt/maxskins/examples/lib/erl/include/
+
+RUN mkdir $EBINPATH && \
+    erlc -I $EINCLUDEPATH -o $EBINPATH /opt/maxskins/examples/lib/erl/src/*.erl
 
 WORKDIR /opt/maxskins

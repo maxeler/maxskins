@@ -1,91 +1,149 @@
-#!/usr/bin/env ruby 
+#!/usr/bin/env ruby
 
-$:.push('../gen-rb')
+$LOAD_PATH.push('../gen-rb')
 
 require 'thrift'
 require 'moving_average_service'
 
-def check(dataIn, dataOut, size)
-    for i in 1..(size-2)
-        if ((dataOut[i] - ((dataIn[i - 1] + dataIn[i] + dataIn[i + 1]) / 3)).abs > 0.0001)
-            puts "Test failed! #{dataOut[i]} != #{(dataIn[i - 1] + dataIn[i] + dataIn[i + 1]) / 3}"
-            Kernel.exit(-1)
-            exit -1
-        end
-    end
+def check(data_in, data_out, size)
+  status = 0
+  (1..(size - 2)).each do |i|
+    next if (((data_in[i - 1] + data_in[i] + data_in[i + 1]) / 3) -
+            data_out[i]).abs < 0.0001
+    puts "Output data @ #{i} =  #{data_out[i]} "\
+         "(expected #{(data_in[i - 1] + data_in[i] + data_in[i + 1]) / 3})"
+    status += 1
+  end
 
-    puts "Test passed!"
-    return nil
+  status
 end
 
 begin
 
-    include Com::Maxeler::MovingAverage
+  include Com::Maxeler::MovingAverage
 
-    port = 9090
+  start_time = Time.now
+  start_dfe_time = start_time
 
-    # Make socket
-    transport = Thrift::BufferedTransport.new(Thrift::Socket.new('localhost', port))
+  port = 9090
 
-    # Wrap in a protocol
-    protocol = Thrift::BinaryProtocol.new(transport)
+  # Make socket
+  socket = Thrift::Socket.new('localhost', port)
 
-    # Create a client to use the protocol encoder
-    client = MovingAverageService::Client.new(protocol)
+  # Buffering is critical. Raw sockets are very slow
+  transport = Thrift::BufferedTransport.new(socket)
 
-    # Connect!
-    transport.open()
- 
-    size = 384        
+  # Wrap in a protocol
+  protocol = Thrift::BinaryProtocol.new(transport)
 
-    # Generate input
-    dataIn = Array.new(size)
+  # Create a client to use the protocol encoder
+  client = MovingAverageService::Client.new(protocol)
 
-    for i in 0..(size-1)
-        dataIn[i] = Float(rand (0..99))
-    end
+  current_time = (Time.now - start_time).round(5)
+  puts "Creating a client:\t\t\t\t#{current_time}s"
 
-    # Initialize maxfile
-    max_file = client.MovingAverage_init()
+  # Connect!
+  start_time = Time.now
+  transport.open
+  current_time = (Time.now - start_time).round(5)
+  puts "Opening connection:\t\t\t\t#{current_time}s"
 
-    # Load DFE
-    max_engine = client.max_load(max_file, '*')
+  start_time = Time.now
+  size = 384
 
-    # Allocate and send input streams to server
-    address_dataIn = client.malloc_float(size)
-    client.send_data_float(address_dataIn, dataIn)
+  # Generate input
+  data_in = Array.new(size)
+  (0..(size - 1)).each do |i|
+    data_in[i] = Float(rand(0..99))
+  end
+  current_time = (Time.now - start_time).round(5)
+  puts "Generating input data:\t\t\t\t#{current_time}s"
 
-    # Allocate memory for output stream on server
-    address_dataOut = client.malloc_float(size)
+  # Initialize maxfile
+  start_time = Time.now
+  max_file = client.MovingAverage_init()
+  current_time = (Time.now - start_time).round(5)
+  puts "Initializing maxfile:\t\t\t\t#{current_time}s"
 
-    puts "Running DFE."
-    actions = MovingAverage_actions_t_struct.new()
-    actions.param_N = size
-    actions.instream_x = address_dataIn
-    actions.outstream_y = address_dataOut
-    address_actions = client.send_MovingAverage_actions_t(actions)
-    client.MovingAverage_run(max_engine, address_actions)
+  # Load DFE
+  start_time = Time.now
+  max_engine = client.max_load(max_file, '*')
+  current_time = (Time.now - start_time).round(5)
+  puts "Loading DFE:\t\t\t\t\t#{current_time}s"
 
-    # Unload DFE
-    client.max_unload(max_engine)
+  # Allocate and send input streams to server
+  start_time = Time.now
+  address_data_in = client.malloc_float(size)
+  client.send_data_float(address_data_in, data_in)
+  current_time = (Time.now - start_time).round(5)
+  puts "Sending input data:\t\t\t\t#{current_time}s"
 
-    # Get output stream from server
-    dataOut = client.receive_data_float(address_dataOut, size)
+  # Allocate memory for output stream on server
+  start_time = Time.now
+  address_data_out = client.malloc_float(size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Allocating memory for output stream on server:\t#{current_time}s"
 
-    # Free allocated maxfile data
-    client.MovingAverage_free()
+  # Action default
+  start_time = Time.now
+  actions = MovingAverage_actions_t_struct.new
+  actions.param_N = size
+  actions.instream_x = address_data_in
+  actions.outstream_y = address_data_out
+  address_actions = client.send_MovingAverage_actions_t(actions)
+  client.MovingAverage_run(max_engine, address_actions)
+  current_time = (Time.now - start_time).round(5)
+  puts "Moving average time:\t\t\t\t#{current_time}s"
 
-    # Free allocated memory for streams on server
-    client.free(address_dataIn)
-    client.free(address_dataOut)
+  # Unload DFE
+  start_time = Time.now
+  client.max_unload(max_engine)
+  current_time = (Time.now - start_time).round(5)
+  puts "Unloading DFE:\t\t\t\t\t#{current_time}s"
 
-    # Close!
-    transport.close()
+  # Get output stream from server
+  start_time = Time.now
+  data_out = client.receive_data_float(address_data_out, size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Getting output stream:\t(size = #{size * 32} bit)\t#{current_time}s"
 
-    # Checking results
-    check(dataIn, dataOut, size)
+  # Free allocated memory for streams on server
+  start_time = Time.now
+  client.free(address_data_in)
+  client.free(address_data_out)
+  client.free(address_actions)
+  current_time = (Time.now - start_time).round(5)
+  puts "Freeing allocated memory for streams on server:\t#{current_time}s"
+
+  # Free allocated maxfile data
+  start_time = Time.now
+  client.MovingAverage_free()
+  current_time = (Time.now - start_time).round(5)
+  puts "Freeing allocated maxfile data:\t\t\t#{current_time}s"
+
+  # Checking results
+  start_time = Time.now
+  status = check(data_in, data_out, size)
+  current_time = (Time.now - start_time).round(5)
+  puts "Checking results:\t\t\t\t#{current_time}s"
+
+  # Close!
+  start_time = Time.now
+  transport.close
+  current_time = (Time.now - start_time).round(5)
+  puts "Closing connection:\t\t\t\t#{current_time}s"
+
+  current_time = (Time.now - start_dfe_time).round(5)
+  puts "DFE moving average total time:\t\t\t#{current_time}s"
+
+  if status == 0
+    puts 'Test successful!'
+  else
+    puts "Test failed #{status} times!"
+    Kernel.exit(-1)
+  end
 
 rescue Thrift::Exception => tx
-    print 'Thrift::Exception: ', tx.message, "\n"
-    Kernel.exit(-1)
+  print 'Thrift::Exception: ', tx.message, "\n"
+  Kernel.exit(-1)
 end

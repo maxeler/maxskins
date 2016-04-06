@@ -24,7 +24,7 @@
     <path refid="build.classpath" />
     <pathelement path="${build}" />
   </path>
-  
+
   <target name="init">
     <tstamp />
     <mkdir dir="${build}"/>
@@ -34,13 +34,13 @@
     <javac srcdir="${gen}" destdir="${build}" classpathref="libs.classpath" />
     <javac srcdir="${src}" destdir="${build}" classpathref="build.classpath" />
   </target>
- 
+
   <target name="VectorAdditionClient" description="Run VectorAddition Client" depends="compile">
     <java classname="VectorAdditionClient"
       classpathref="vectoraddition.classpath" failonerror="true">
     </java>
   </target>
- 
+
   <target name="clean">
     <delete dir="${build}" />
   </target>

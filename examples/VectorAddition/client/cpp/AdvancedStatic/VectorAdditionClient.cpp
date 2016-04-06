@@ -1,124 +1,287 @@
-#include <iostream>
-
+/* Copyright 2016 Maxeler Technologies */
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
+
 #include <stdlib.h>
+
+#include <vector>
 
 #include "../gen-cpp/VectorAdditionService.h"
 
-using namespace std;
-using namespace apache::thrift;
-using namespace apache::thrift::protocol;
-using namespace apache::thrift::transport;
+using std::cout;
+using std::endl;
 
-using namespace ::com::maxeler::VectorAddition;
+using apache::thrift::TException;
+using apache::thrift::protocol::TBinaryProtocol;
+using apache::thrift::protocol::TProtocol;
+using apache::thrift::transport::TBufferedTransport;
+using apache::thrift::transport::TSocket;
+using apache::thrift::transport::TTransport;
 
-void check(std::vector<int32_t> x, std::vector<int32_t> y, std::vector<int32_t> s, int scalar, int size)
-{
-	int status = 0;
+using ::com::maxeler::VectorAddition::VectorAdditionServiceClient;
+using ::com::maxeler::VectorAddition::VectorAddition_actions_t_struct;
+using ::com::maxeler::VectorAddition::VectorAddition_writeLMem_actions_t_struct;
+using ::com::maxeler::VectorAddition::remote_ptr;
 
-	for(int i = 0; i < size; i++)
-		if (s[i] != x[i] + y[i] + scalar) {
-			cout << "Test failed!" << endl;
-			status = 1;
-			exit(-1);
-			break;
-		}
+/**
+ * Calculates how much time pasted from strartTime.
+ *
+ * @param startTime  Starting time
+ *
+ * @return           Time difference in seconds
+ */
+double calcTime(struct timeval startTime) {
+  struct timeval endTime;
 
-	if (!status) 
-		cout << "Test successful!" << endl;
+  gettimeofday(&endTime, NULL);
+
+  double seconds  = endTime.tv_sec  - startTime.tv_sec;
+  double useconds = endTime.tv_usec - startTime.tv_usec;
+
+  return (((seconds) * 1000 + useconds / 1000.0) + 0.5) / 1000;
 }
 
-int main(int argc, char** argv) {
+/**
+ * Generates random data.
+ *
+ * @param size    Size
+ *
+ * @return        Random data
+ */
+std::vector<int32_t> randomData(int size) {
+  std::vector<int32_t> dataIn;
 
-	boost::shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
-	boost::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
-	boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
-	VectorAdditionServiceClient client(protocol);
-	
-	try {
-	  
-		transport->open();
-  
-		const int size = 384;
-		int sizeBytes = size * sizeof(int32_t);
-		std::vector<int32_t> x;
-		std::vector<int32_t> y; 
-		int scalar = 3;
+  for (int i = 0; i < size; i++) {
+    dataIn.push_back(random() % 100);
+  }
 
-		// Generate input data
-		for(int i = 0; i<size; ++i) {
-			x.push_back(random() % 100);
-			y.push_back(random() % 100);
-		}
-
-		// Initialize maxfile
-		remote_ptr maxfile = client.VectorAddition_init();
-
-		// Load DFE
-		remote_ptr engine = client.max_load(maxfile, "*");
-
-		// Allocate and send input streams to server
-		remote_ptr address_x = client.malloc_int32_t(size);
-		client.send_data_int32_t(address_x, x);
-
-		remote_ptr address_y = client.malloc_int32_t(size);
-		client.send_data_int32_t(address_y, y);
-
-		// Allocate memory for output stream on server
-		remote_ptr address_s = client.malloc_int32_t(size);
-
-		cout << "Writing to LMem." << endl;
-	   
-		VectorAddition_writeLMem_actions_t_struct actions_lmem;
-
-		actions_lmem.__set_param_address(0);
-		actions_lmem.__set_param_nbytes(sizeBytes);
-		actions_lmem.__set_instream_cpu_to_lmem(address_x);
-
-		remote_ptr address_actions_lmem = client.send_VectorAddition_writeLMem_actions_t(actions_lmem);
-
-		client.VectorAddition_writeLMem_run(engine, address_actions_lmem); 
-
-		cout << "Running on DFE." << endl;
-		
-		VectorAddition_actions_t_struct actions;
-
-		actions.__set_param_A(scalar);
-		actions.__set_param_N(size);
-		actions.__set_instream_y(address_y);
-		actions.__set_outstream_s(address_s);
-
-		remote_ptr address_actions = client.send_VectorAddition_actions_t(actions);
-
-		client.VectorAddition_run(engine, address_actions);
-
-		// Unload DFE
-		client.max_unload (engine);
-
-		// Get output stream from server
-		std::vector<int32_t> s;
-		s.resize(size);
-		client.receive_data_int32_t(s, address_s, size);
-
-		// Free allocated memory for streams on server
-		client.free(address_x);
-		client.free(address_y);
-		client.free(address_s);
-
-		// Free allocated maxfile data
-		client.VectorAddition_free();
-
-		// Checking results
-		check(x, y, s, scalar, size);
-	
-		transport->close();
-	
-	} catch (TException& tx) {
-		cout << "ERROR: " << tx.what() << endl;
-		exit(-1);
-	}
-
-	return 0;
+  return dataIn;
 }
+
+/**
+ * Checks if VectorAdditionDFE and VectorAdditionCPU return the same value.
+ *
+ * @param dataOutDfe  Data output from DFE
+ * @param dataOutCpu  Data output from CPU
+ * @param size        Size
+ */
+void check(std::vector<int32_t> dataOutDFE,
+           std::vector<int32_t> dataOutCPU, int size) {
+  for (int i = 0; i < size; i++) {
+    if (dataOutDFE[i] != dataOutCPU[i]) {
+      fprintf(stderr, "Output data @ %d = %d (expected %d)\n",
+              i, dataOutDFE[i], dataOutCPU[i]);
+
+      cout << "Test failed." << endl;
+      exit(-1);
+    }
+  }
+
+  cout << "Test passed!" << endl;
+}
+
+/**
+ * VectorAddition on CPU.
+ *
+ * @param size          Size
+ * @param firstVector   First vector
+ * @param secondVector  Second vector
+ * @param scalar        Scalar
+ *
+ * @return              Data output
+ */
+std::vector<int32_t> VectorAdditionCPU(int size, std::vector<int32_t> x,
+                                       std::vector<int32_t> y, int scalar) {
+  std::vector<int32_t> dataOut(size);
+
+  for (int i = 0 ; i < size ; i++) {
+    dataOut[i] = x[i] + y[i] + scalar;
+  }
+
+  return dataOut;
+}
+
+/**
+ * VectorAddition on DFE.
+ *
+ * @param size          Size
+ * @param firstVector   First vector
+ * @param secondVector  Second vector
+ * @param scalar        Scalar
+ *
+ * @return              Data output
+ */
+std::vector<int32_t> VectorAdditionDFE(int size, std::vector<int32_t> x,
+                                       std::vector<int32_t> y, int scalar) {
+  int sizeBytes = size * sizeof(int32_t);
+  std::vector<int32_t> dataOut(size);
+
+  struct timeval startTime;
+
+  gettimeofday(&startTime, NULL);
+
+  // Make socket
+  boost::shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
+
+  // Buffering is critical. Raw sockets are very slow
+  boost::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
+
+  // Wrap in a protocol
+  boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
+
+  // Create a client to use the protocol encoder
+  VectorAdditionServiceClient client(protocol);
+
+  cout << "Creating a client:\t\t\t\t";
+  cout << calcTime(startTime) << "s" << endl;
+
+  try {
+    // Connect!
+    gettimeofday(&startTime, NULL);
+    transport->open();
+    cout << "Opening connection:\t\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Initialize maxfile
+    gettimeofday(&startTime, NULL);
+    remote_ptr maxfile = client.VectorAddition_init();
+    cout << "Initializing maxfile:\t\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Load DFE
+    gettimeofday(&startTime, NULL);
+    remote_ptr engine = client.max_load(maxfile, "*");
+    cout << "Loading DFE:\t\t\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Allocate and send input streams to server
+    gettimeofday(&startTime, NULL);
+
+    remote_ptr address_x = client.malloc_int32_t(size);
+    client.send_data_int32_t(address_x, x);
+
+    remote_ptr address_y = client.malloc_int32_t(size);
+    client.send_data_int32_t(address_y, y);
+
+    cout << "Sending input data:\t\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Allocate memory for output stream on server
+    gettimeofday(&startTime, NULL);
+    remote_ptr address_dataOut = client.malloc_int32_t(size);
+    cout << "Allocating memory for output stream on server:\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Write to LMem
+    gettimeofday(&startTime, NULL);
+
+    VectorAddition_writeLMem_actions_t_struct actions_lmem;
+
+    actions_lmem.__set_param_address(0);
+    actions_lmem.__set_param_nbytes(sizeBytes);
+    actions_lmem.__set_instream_cpu_to_lmem(address_x);
+
+    remote_ptr address_actions_lmem =
+        client.send_VectorAddition_writeLMem_actions_t(actions_lmem);
+
+    client.VectorAddition_writeLMem_run(engine, address_actions_lmem);
+
+    cout << "Writing to LMem:\t\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Action default
+    gettimeofday(&startTime, NULL);
+
+    VectorAddition_actions_t_struct actions;
+
+    actions.__set_param_A(scalar);
+    actions.__set_param_N(size);
+    actions.__set_instream_y(address_y);
+    actions.__set_outstream_s(address_dataOut);
+
+    remote_ptr address_actions = client.send_VectorAddition_actions_t(actions);
+
+    client.VectorAddition_run(engine, address_actions);
+
+    cout << "Vector addition time:\t\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Unload DFE
+    gettimeofday(&startTime, NULL);
+    client.max_unload(engine);
+    cout << "Unloading DFE:\t\t\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Get output stream from server
+    gettimeofday(&startTime, NULL);
+    client.receive_data_int32_t(dataOut, address_dataOut, size);
+    cout << "Getting output stream:\t(size = " << size * 32 << " bit)\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Free allocated memory for streams on server
+    gettimeofday(&startTime, NULL);
+    client.free(address_x);
+    client.free(address_y);
+    client.free(address_dataOut);
+    client.free(address_actions);
+    client.free(address_actions_lmem);
+    cout << "Freeing allocated memory for streams on server:\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Free allocated maxfile data
+    gettimeofday(&startTime, NULL);
+    client.VectorAddition_free();
+    cout << "Freeing allocated maxfile data:\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+
+    // Close!
+    gettimeofday(&startTime, NULL);
+    transport->close();
+    cout << "Closing connection:\t\t\t\t";
+    cout << calcTime(startTime) << "s" << endl;
+  } catch (TException& tx) {
+    cout << "ERROR: " << tx.what() << endl;
+    exit(-1);
+  }
+
+  return dataOut;
+}
+
+/**
+ * Calculates VectorAdditionDFE and VectorAdditionCPU and
+ * checks if they return the same value.
+ */
+int main() {
+  struct timeval startTime;
+
+  // Input
+  gettimeofday(&startTime, NULL);
+
+  const int size = 384;
+
+  std::vector<int32_t> x = randomData(size);
+  std::vector<int32_t> y = randomData(size);
+  int scalar = 3;
+
+  cout << "Generating input data:\t\t\t\t";
+  cout << calcTime(startTime) << "s" << endl;
+
+  // DFE Output
+  gettimeofday(&startTime, NULL);
+  std::vector<int32_t> dataOutDFE = VectorAdditionDFE(size, x, y, scalar);
+  cout << "DFE vector addition total time:\t\t\t";
+  cout << calcTime(startTime) << "s" << endl;
+
+  // CPU Output
+  gettimeofday(&startTime, NULL);
+  std::vector<int32_t> dataOutCPU = VectorAdditionCPU(size, x, y, scalar);
+  cout << "CPU vector addition time:\t\t\t";
+  cout << calcTime(startTime) << "s" << endl;
+
+  // Checking results
+  check(dataOutDFE, dataOutCPU, size);
+
+  return 0;
+}
+

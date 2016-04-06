@@ -57,6 +57,46 @@ Create skin from **examples/VectorAddition** directory with:
 ```bash
 maxskins --rb VectorAddition.max
 ```
+
+### Create skin for Go
+
+Create skin from **examples/VectorAddition** directory with:
+
+```bash
+maxskins --go VectorAddition.max
+```
+
+### Create skin for C# 
+
+Create skin from **examples/VectorAddition** directory with:
+
+```bash
+maxskins --csharp VectorAddition.max
+```
+  
+### Create skin for PHP
+
+Create skin from **examples/VectorAddition** directory with:
+
+```bash
+maxskins --php VectorAddition.max
+```
+
+### Create skin for Haskell
+
+Create skin from **examples/VectorAddition** directory with:
+
+```bash
+maxskins --hs VectorAddition.max
+```
+
+### Create skin for Erlang
+
+Create skin from **examples/VectorAddition** directory with:
+
+```bash
+maxskins --erl VectorAddition.max
+```
     
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory.    
 In the **client** directory there are Apache Thrift files necessary for client. 
@@ -73,7 +113,7 @@ Start the server from the created server directory (**examples/VectorAddition/se
 
 ### Run the Python example
 
-Run the example from the **examples/VectorAddition/client/py/BasicStatic/** or **examples/VectorAddition/client/py/AdvancedStatic/** or **examples/VectorAddition/client/py/AdvancedDynamic/** directory with:
+Run the example from the **examples/VectorAddition/client/py/BasicStatic/** or **examples/VectorAddition/client/py/AdvancedStatic/** or **examples/VectorAddition/client/py/Dynamic/** directory with:
 
 ```bash
 ./VectorAdditionClient.py
@@ -81,7 +121,7 @@ Run the example from the **examples/VectorAddition/client/py/BasicStatic/** or *
 
 ### Run the C++ example
 
-Run the example from the **examples/VectorAddition/client/cpp/BasicStatic/** or **examples/VectorAddition/client/cpp/AdvancedStatic/** or **examples/VectorAddition/client/cpp/AdvancedDynamic/** directory with:
+Run the example from the **examples/VectorAddition/client/cpp/BasicStatic/** or **examples/VectorAddition/client/cpp/AdvancedStatic/** or **examples/VectorAddition/client/cpp/Dynamic/** directory with:
 
 ```bash
 make
@@ -90,7 +130,7 @@ make
 
 ### Run the Java example
 
-Run the example from the **examples/VectorAddition/client/java/BasicStatic/** or **examples/VectorAddition/client/java/AdvancedStatic/** or **examples/VectorAddition/client/java/AdvancedDynamic/** directory with:
+Run the example from the **examples/VectorAddition/client/java/BasicStatic/** or **examples/VectorAddition/client/java/AdvancedStatic/** or **examples/VectorAddition/client/java/Dynamic/** directory with:
 
 ```bash
 ant
@@ -98,10 +138,55 @@ ant
 
 ### Run the Ruby example
 
-Run the example from the **examples/VectorAddition/client/rb/BasicStatic/** or **examples/VectorAddition/client/rb/AdvancedStatic/** or **examples/VectorAddition/client/rb/AdvancedDynamic/** directory with:
+Run the example from the **examples/VectorAddition/client/rb/BasicStatic/** or **examples/VectorAddition/client/rb/AdvancedStatic/** or **examples/VectorAddition/client/rb/Dynamic/** directory with:
 
 ```bash
 ./VectorAdditionClient.rb
+```
+
+
+### Run the Go example
+
+Run the example from the **examples/VectorAddition/client/go/BasicStatic/** or **examples/VectorAddition/client/go/AdvancedStatic/** or **examples/VectorAddition/client/go/Dynamic/** directory with:
+
+```bash
+go run VectorAdditionClient.go
+```
+
+### Run the C# example
+
+Run the example from the **examples/VectorAddition/client/csharp/BasicStatic/** or **examples/VectorAddition/client/csharp/AdvancedStatic/** or **examples/VectorAddition/client/csharp/Dynamic/** directory with:
+
+```bash
+mcs /out:VectorAdditionClient.exe VectorAdditionClient.cs /recurse:../gen-csharp/com/maxeler/VectorAddition/*.cs /r:$MONO_PATH/Thrift.dll
+mono VectorAdditionClient.exe
+```
+
+### Run the PHP example
+
+Run the example from the **examples/VectorAddition/client/php/BasicStatic/** or **examples/VectorAddition/client/php/Dynamic/** directory with:
+
+```bash
+php ./VectorAdditionClient.php
+```
+
+### Run the Haskell example
+
+Run the example from the **examples/VectorAddition/client/hs/BasicStatic/** or **examples/VectorAddition/client/hs/AdvancedStatic/** or **examples/VectorAddition/client/hs/Dynamic/** directory with:
+
+```bash
+ghc -i$HASKELLPATH -o VectorAdditionClient VectorAdditionClient.hs
+./VectorAdditionClient
+```
+
+### Run the Erlang example
+
+Run the example from the **examples/VectorAddition/client/erl/BasicStatic/** or **examples/VectorAddition/client/erl/AdvancedStatic/** or **examples/VectorAddition/client/erl/Dynamic/** directory with:
+
+```bash
+erlc -I $EINCLUDEPATH -I $EBINPATH -I ../gen-erl/ -o ../gen-erl/ ../gen-erl/*.erl
+erlc -I $EINCLUDEPATH -I ../gen-erl/ vectorAdditionClient.erl
+erl -pa $EBINPATH -pa ../gen-erl/ -noshell -s vectorAdditionClient t -s init stop
 ```
     
 **Note:** Examples can not be run if the server is not started. 
@@ -113,4 +198,3 @@ After executing application, simulator can be stopped with the following command
 ```bash
 maxcompilersim -c MAIA stop
 ```
-

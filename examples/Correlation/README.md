@@ -39,7 +39,47 @@ Create skin from **examples/Correlation** directory with:
 ```bash
 maxskins --cpp correlation.max
 ```
-    
+
+### Create skin for C# 
+
+Create skin from **examples/Correlation** directory with:
+
+```bash
+maxskins --csharp correlation.max
+```
+
+### Create skin for Java
+
+Create skin from **examples/Correlation** directory with:
+
+```bash
+maxskins --java correlation.max
+```
+
+### Create skin for Ruby
+     
+Create skin from **examples/Correlation** directory with:
+
+```bash
+maxskins --rb correlation.max
+```
+
+### Create skin for Go
+
+Create skin from **examples/Correlation** directory with:
+
+```bash
+maxskins --go correlation.max
+```
+
+### Create skin for Haskell
+
+Create skin from **examples/Correlation** directory with:
+
+```bash
+maxskins --hs correlation.max
+```
+
 **Note:** maxskins command creates **client**, **server** and **.scratch** directories in the current directory.    
 In the **client** directory there are Apache Thrift files necessary for client. 
 In the **server** directory there is a binary file which is used to start the server.   
@@ -58,7 +98,7 @@ Start the server from the created server directory (**examples/Correlation/serve
 Run the example from the **examples/Correlation/client/py/BasicStatic/** or **examples/Correlation/client/py/AdvancedStatic/** or **examples/Correlation/client/py/Dynamic/** directory with:
 
 ```bash
-./correlation.py
+./CorrelationClient.py <stream size> <number of streams>
 ```
 
 ### Run the C++ example
@@ -67,9 +107,51 @@ Run the example from the **examples/Correlation/client/cpp/BasicStatic/** or **e
 
 ```bash
 make
-./Correlation_client
+./correlation_client <stream size> <number of streams>
 ```
-    
+
+### Run the C# example
+
+Run the example from the **examples/Correlation/client/csharp/BasicStatic/** or **examples/Correlation/client/csharp/AdvancedStatic/** or **examples/Correlation/client/csharp/Dynamic/** directory with:
+
+```bash
+mcs /out:CorrelationClient.exe CorrelationClient.cs /recurse:../gen-csharp/com/maxeler/correlation/*.cs /r:$MONO_PATH/Thrift.dll
+mono CorrelationClient.exe <stream size> <number of streams>
+```
+
+### Run the java example
+
+Run the example from the **examples/Correlation/client/java/BasicStatic/** or **examples/Correlation/client/java/AdvancedStatic/** or **examples/Correlation/client/java/Dynamic/** directory with:
+
+```bash
+ant -DstreamSize=<stream size> -DnumberOfStreams=<number of streams>
+```
+
+### Run the Ruby example
+
+Run the example from the **examples/Correlation/client/rb/BasicStatic/** or **examples/Correlation/client/rb/AdvancedStatic/** or **examples/Correlation/client/rb/Dynamic/** directory with:
+
+```bash
+./CorrelationClient.rb <stream size> <number of streams>
+```
+
+### Run the Go example
+
+Run the example from the **examples/Correlation/client/go/BasicStatic/** or **examples/Correlation/client/go/AdvancedStatic/** or **examples/Correlation/client/go/Dynamic/** directory with:
+
+```bash
+go run CorrelationClient.go <stream size> <number of streams>
+```
+
+### Run the Haskell example
+
+Run the example from the **examples/Correlation/client/hs/BasicStatic/** or **examples/Correlation/client/hs/AdvancedStatic/** or **examples/Correlation/client/hs/Dynamic/** directory with:
+
+```bash
+ghc -i$HASKELLPATH -O2  CorrelationClient.hs -o CorrelationClient
+./CorrelationClient <stream size> <number of streams>
+```
+
 **Note:** Examples can not be run if the server is not started. 
 
 ### Stopping the simulator
