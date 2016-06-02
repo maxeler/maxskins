@@ -1,3 +1,4 @@
+![MaxSkins](documentation/images/MaxSkinSquareCrop300.png?raw=true "MaxSkins")
 # MaxSkins: DFEs Speak Your Language
 
 **DFEs can now be taught to speak almost any language.**
